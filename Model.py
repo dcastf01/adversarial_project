@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 class Model:
   def __init__(self,model,result_target:float,preprocess_layer):
     self.model=model
