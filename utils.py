@@ -23,19 +23,7 @@ def clean_list_of_familys(lists_of_private_object):
       prev_clean_list.append(element)
   return prev_clean_list
   
-def get_preprocesing_input(ALL_FAMILYS,model):
-  def check_which_is_family_is_the_family_to_which_it_belongs(ALL_FAMILYS,model):
 
-    for family in ALL_FAMILYS:
-      family_module=getattr(tf.keras.applications,family)
-      if model in dir(family_module):
-        return family_module
-    return "ERROR, NO SE HA ENCONTRADO EN NINGUNA FAMILIA"
-  def get_function_preprocess_input(module_family_net):
-    return getattr(module_family_net,"preprocess_input")
-  family_module=check_which_is_family_is_the_family_to_which_it_belongs(ALL_FAMILYS,model)
-  preprocess_input=(get_function_preprocess_input(family_module))
-  return preprocess_input
 
 def get_all_models_in_keras_without_clean():
     return dir(tf.keras.applications)
@@ -43,6 +31,24 @@ def get_all_models_in_keras_without_clean():
 def get_ALL_MODELS():
     all_models_in_keras_without_clean=get_all_models_in_keras_without_clean()
     return clean_list_of_models_names(all_models_in_keras_without_clean)
-def get_ALL_FAMILYS():
+
+def get_ALL_FAMILIES():
     all_models_in_keras_without_clean=get_all_models_in_keras_without_clean()
     return clean_list_of_familys(all_models_in_keras_without_clean)
+
+def get_preprocesing_input(model):
+    def check_which_is_family_is_the_family_to_which_it_belongs(ALL_FAMILIES,model):
+
+        for family in ALL_FAMILIES:
+            family_module=getattr(tf.keras.applications,family)
+        if model in dir(family_module):
+            return family_module
+        return "ERROR, NO SE HA ENCONTRADO EN NINGUNA FAMILIA"
+    
+    def get_function_preprocess_input(module_family_net):
+        return getattr(module_family_net,"preprocess_input")
+
+    ALL_FAMILIES=get_ALL_FAMILIES()
+    family_module=check_which_is_family_is_the_family_to_which_it_belongs(ALL_FAMILIES,model)
+    preprocess_input=(get_function_preprocess_input(family_module))
+    return preprocess_input
