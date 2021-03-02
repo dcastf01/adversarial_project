@@ -36,3 +36,13 @@ def get_preprocesing_input(ALL_FAMILYS,model):
   family_module=check_which_is_family_is_the_family_to_which_it_belongs(ALL_FAMILYS,model)
   preprocess_input=(get_function_preprocess_input(family_module))
   return preprocess_input
+
+def get_all_models_in_keras_without_clean():
+    return dir(tf.keras.applications)
+
+def get_ALL_MODELS():
+    all_models_in_keras_without_clean=get_all_models_in_keras_without_clean()
+    return clean_list_of_models_names(all_models_in_keras_without_clean)
+def get_ALL_FAMILYS():
+    all_models_in_keras_without_clean=get_all_models_in_keras_without_clean()
+    return clean_list_of_familys(all_models_in_keras_without_clean)
