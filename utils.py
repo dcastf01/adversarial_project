@@ -41,8 +41,8 @@ def get_preprocesing_input(model):
 
         for family in ALL_FAMILIES:
             family_module=getattr(tf.keras.applications,family)
-        if model in dir(family_module):
-            return family_module
+            if model in dir(family_module):
+                return family_module
         return "ERROR, NO SE HA ENCONTRADO EN NINGUNA FAMILIA"
     
     def get_function_preprocess_input(module_family_net):
