@@ -40,7 +40,8 @@ class Model:
         self.threshold_target_accuracy_in_the_class_of_this_image=0.01
 
   def predict(self,image):
-    self.prediction=self.model(image,training=False)
+    preprocess_image=self.preprocess_layer(image)
+    self.prediction=self.model(preprocess_image,training=False)
 
   def update_accuracy_in_the_class_of_this_image(self,target_class):
     self.accuracy_in_the_class_of_this_image=self.prediction[0][target_class].numpy()
