@@ -9,7 +9,7 @@ class id_drive_to_download:
                 # "David_image_perturbedpertBig_round7_005.zip": "1lXkFZT7rMu2urCS3U3kwy0Oubp2yfGUc",
                 # "David_image_perturbedpertBig_round7_002.zip": "1x4-pVseLzzAusfUo7lFkA5PEsV28U38p",
                 # "csvs_IRT.zip":"1-S_pyKos3lCaTTW6cspF7pHsuQq727WW",
-                "csv_IRT_1000.zip":"1xxiQZxPq-LH_Z4PmpfOdihkPzRR_NYKP",
+                "1000csv_IRT.zip":"1xxiQZxPq-LH_Z4PmpfOdihkPzRR_NYKP",
                 # "csv_IRT.csv":"19d8r2unwlS6AuF8Nj6DGLFzxPA4g9yHI"
                 # "David_image_perturbedpertBig_mod_3_round3_0025":"1m-YEiISVsKmGmUVPeou2ul3FrJOqxUrM"
                 }
