@@ -47,6 +47,7 @@ class Cifar10FromCSV(Dataset):
         augmentations=self.transform(image=example)
         img=augmentations["image"]
         target=torch.tensor(self.y[index],dtype=torch.half)
+        target=torch.unsqueeze(target,0)
         #pendiente aplicar transform simple a example
         
         return img,target 
