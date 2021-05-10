@@ -5,7 +5,7 @@ import logging
 import sys
 
 from torch.utils import data
-# sys.path.append("/home/dcast/object_detection_TFM")
+# sys.path.append("")
 import pytorch_lightning as pl
 import torch
 import wandb
