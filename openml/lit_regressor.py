@@ -93,8 +93,7 @@ class LitRegressor(LitSystem):
             self.linear_sizes = [self.model.fc.in_features]
         elif model_enum==ModelsAvailable.densenet121:
             self.linear_sizes=[self.model.classifier.in_features]
-        elif model_enum==ModelsAvailable.vit_small_patch16_224:
-            self.linear_sizes=[ self.model.head.in_features]
+ 
         
         
         if features_out_layer3:
@@ -123,5 +122,4 @@ class LitRegressor(LitSystem):
             self.model.fc=self.regressor
         elif model_enum==ModelsAvailable.densenet121:
             self.model.classifier=self.regressor
-        elif model_enum==ModelsAvailable.vit_small_patch16_224:
-            self.model.head=self.regressor
+    

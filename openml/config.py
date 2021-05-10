@@ -10,7 +10,6 @@ ROOT_WORKSPACE: str=""
 class ModelsAvailable(Enum):
     resnet50="resnet50"
     densenet121="densenet121"
-    vit_small_patch16_224="vit_small_patch16_224"
     
     
 class Dataset (Enum):
