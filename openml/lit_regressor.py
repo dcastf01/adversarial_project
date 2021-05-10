@@ -89,7 +89,7 @@ class LitRegressor(LitSystem):
         linear_layers = [nn.Linear(in_f, out_f,) 
                        for in_f, out_f in zip(self.linear_sizes, self.linear_sizes[1:])]
         
-        linear_layers.insert(-2,nn.Tanh)
+        linear_layers.insert(-2,nn.Tanh())
         linear_layers.insert(-2,nn.Dropout(0.25))
             
         self.regressor=nn.Sequential(*linear_layers)
