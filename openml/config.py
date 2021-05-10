@@ -11,16 +11,13 @@ class ModelsAvailable(Enum):
     resnet50="resnet50"
     densenet121="densenet121"
     
-    
 class Dataset (Enum):
     cifar_crop="cifar-10-diff10cropped.csv"
     cifar_replace="cifar-10-diff10replace.csv"
     
-    
 class Optim(Enum):
     adam=1
     sgd=2
-
 
 @dataclass
 class CONFIG(object):
