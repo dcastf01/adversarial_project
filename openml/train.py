@@ -41,7 +41,9 @@ def main():
     config =wandb.config
     
     data_module=build_dataset(path_data_csv=config.path_data,
-                              dataset_name=config.dataset_name)
+                              dataset_name=config.dataset_name,
+                              batch_size=config.batch_size
+                              )
     
     model=LitRegressor(
         experiment_name=config.experiment_name,
