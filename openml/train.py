@@ -49,6 +49,11 @@ def main():
         features_out_layer1=config.features_out_layer1,
         features_out_layer2=config.features_out_layer2,
         features_out_layer3=config.features_out_layer3,
+        tanh1=config.tanh1,
+        tanh2=config.tanh2,
+        dropout1=config.dropout1,
+        dropout2=config.dropout2,
+        
         
                 )
     

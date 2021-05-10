@@ -52,6 +52,10 @@ class CONFIG(object):
     features_out_layer1:int=1
     features_out_layer2:int=64
     features_out_layer3:int=1000
+    tanh1:bool=True
+    tanh2:bool=False
+    dropout1:float=0.25
+    dropout2:float=0.25
     
     ##data
     path_data:str=r"D:\programacion\Repositorios\adversarial_project\openml\data"

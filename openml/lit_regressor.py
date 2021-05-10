@@ -14,11 +14,15 @@ import timm
 class LitRegressor(LitSystem):
     
     def __init__(self,
-                 lr,
-                 optim: str,
-                 features_out_layer1:Optional[int]=None,
-                 features_out_layer2:Optional[int]=None,
-                 features_out_layer3:Optional[int]=None,
+                lr,
+                optim: str,
+                features_out_layer1:Optional[int]=None,
+                features_out_layer2:Optional[int]=None,
+                features_out_layer3:Optional[int]=None,
+                tanh1:Optional[bool]=None,
+                tanh2:Optional[bool]=None,
+                dropout1:Optional[float]=None,
+                dropout2:Optional[float]=None,
                  
                  ):
         
@@ -27,7 +31,12 @@ class LitRegressor(LitSystem):
         self.generate_model(CONFIG.experiment_name,
                                        features_out_layer1,
                                        features_out_layer2,
-                                       features_out_layer3)
+                                       features_out_layer3,
+                                       tanh1,
+                                       tanh2,
+                                       dropout1,
+                                       dropout2,
+                                       )
         self.criterion=F.l1_loss #l1=MSE
         
     
@@ -62,7 +71,12 @@ class LitRegressor(LitSystem):
                         experiment_name:str,
                         features_out_layer1:Optional[int]=None,
                         features_out_layer2:Optional[int]=None,
-                        features_out_layer3:Optional[int]=None
+                        features_out_layer3:Optional[int]=None,
+                        tanh1:Optional[bool]=None,
+                        tanh2:Optional[bool]=None,
+                        dropout1:Optional[float]=None,
+                        dropout2:Optional[float]=None,
+                        
                         ):
         if isinstance(experiment_name,str):
             model_enum=ModelsAvailable[experiment_name.lower()]
@@ -89,8 +103,14 @@ class LitRegressor(LitSystem):
         linear_layers = [nn.Linear(in_f, out_f,) 
                        for in_f, out_f in zip(self.linear_sizes, self.linear_sizes[1:])]
         
-        linear_layers.insert(-2,nn.Tanh())
-        linear_layers.insert(-2,nn.Dropout(0.25))
+        if tanh1:
+            linear_layers.insert(0,nn.Tanh())
+        if dropout1:
+            linear_layers.insert(0,nn.Dropout(0.25)())
+        if tanh2:
+            linear_layers.insert(-2,nn.Tanh())
+        if dropout2:
+            linear_layers.insert(-2,nn.Dropout(0.25))
             
         self.regressor=nn.Sequential(*linear_layers)
         self.model.fc=self.regressor
