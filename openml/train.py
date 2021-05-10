@@ -56,6 +56,12 @@ def main():
         
         
                 )
+    ##callbacks
+    
+    early_stopping=EarlyStopping(
+                            monitor='_validMeanSquaredError',
+                            mode="min",
+                            patience=5)
     
     trainer=pl.Trainer(
                         logger=wandb_logger,

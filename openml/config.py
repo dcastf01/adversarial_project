@@ -9,10 +9,14 @@ ROOT_WORKSPACE: str=""
 
 class ModelsAvailable(Enum):
     resnet50="resnet50"
+    densenet121="densenet121"
+    vit_small_patch16_224="vit_small_patch16_224"
+    
     
 class Dataset (Enum):
     cifar_crop="cifar-10-diff10cropped.csv"
     cifar_replace="cifar-10-diff10replace.csv"
+    
     
 class Optim(Enum):
     adam=1
@@ -22,7 +26,7 @@ class Optim(Enum):
 @dataclass
 class CONFIG(object):
     
-    experiment=ModelsAvailable.resnet50
+    experiment=ModelsAvailable.vit_small_patch16_224
     experiment_name:str=experiment.name
     experiment_net:str=experiment.value
     PRETRAINED_MODEL:bool=True

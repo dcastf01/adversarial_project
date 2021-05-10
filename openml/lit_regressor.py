@@ -80,7 +80,7 @@ class LitRegressor(LitSystem):
                         ):
         if isinstance(experiment_name,str):
             model_enum=ModelsAvailable[experiment_name.lower()]
-        self.model=model_enum=timm.create_model(
+        self.model=timm.create_model(
                                     model_enum.value,
                                     pretrained=CONFIG.PRETRAINED_MODEL,
                                     
@@ -89,7 +89,12 @@ class LitRegressor(LitSystem):
             for param in self.model.parameters():
                 param.requires_grad=False
                 
-        self.linear_sizes = [2048]
+        if model_enum==ModelsAvailable.resnet50:
+            self.linear_sizes = [self.model.fc.in_features]
+        elif model_enum==ModelsAvailable.densenet121:
+            self.linear_sizes=[self.model.classifier.in_features]
+        elif model_enum==ModelsAvailable.vit_small_patch16_224:
+            self.linear_sizes=[ self.model.head.in_features]
         
         
         if features_out_layer3:
@@ -106,11 +111,17 @@ class LitRegressor(LitSystem):
         if tanh1:
             linear_layers.insert(0,nn.Tanh())
         if dropout1:
-            linear_layers.insert(0,nn.Dropout(0.25)())
+            linear_layers.insert(0,nn.Dropout(0.25))
         if tanh2:
             linear_layers.insert(-2,nn.Tanh())
         if dropout2:
             linear_layers.insert(-2,nn.Dropout(0.25))
             
         self.regressor=nn.Sequential(*linear_layers)
-        self.model.fc=self.regressor
+        
+        if model_enum==ModelsAvailable.resnet50:
+            self.model.fc=self.regressor
+        elif model_enum==ModelsAvailable.densenet121:
+            self.model.classifier=self.regressor
+        elif model_enum==ModelsAvailable.vit_small_patch16_224:
+            self.model.head=self.regressor
