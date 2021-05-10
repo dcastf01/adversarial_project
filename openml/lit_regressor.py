@@ -14,7 +14,8 @@ import timm
 class LitRegressor(LitSystem):
     
     def __init__(self,
-                lr,
+                 experiment_name:str,
+                lr:float,
                 optim: str,
                 features_out_layer1:Optional[int]=None,
                 features_out_layer2:Optional[int]=None,
@@ -28,7 +29,7 @@ class LitRegressor(LitSystem):
         
         super().__init__( lr, optim=optim)
         
-        self.generate_model(CONFIG.experiment_name,
+        self.generate_model(experiment_name,
                                        features_out_layer1,
                                        features_out_layer2,
                                        features_out_layer3,

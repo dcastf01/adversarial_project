@@ -25,7 +25,7 @@ class Optim(Enum):
 @dataclass
 class CONFIG(object):
     
-    experiment=ModelsAvailable.vit_small_patch16_224
+    experiment=ModelsAvailable.densenet121
     experiment_name:str=experiment.name
     experiment_net:str=experiment.value
     PRETRAINED_MODEL:bool=True

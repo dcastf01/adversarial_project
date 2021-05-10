@@ -44,6 +44,7 @@ def main():
                               dataset_name=config.dataset_name)
     
     model=LitRegressor(
+        experiment_name=config.experiment_name,
         lr=config.lr,
         optim=config.optim_name,
         features_out_layer1=config.features_out_layer1,
