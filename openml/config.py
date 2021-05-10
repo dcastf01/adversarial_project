@@ -12,7 +12,7 @@ class ModelsAvailable(Enum):
     
 class Dataset (Enum):
     cifar_crop="cifar-10-diff10cropped.csv"
-    cifar_repace="cifar-10-diff10replace.csv"
+    cifar_replace="cifar-10-diff10replace.csv"
     
 class Optim(Enum):
     adam=1
