@@ -50,8 +50,7 @@ class LitRegressor(LitSystem):
         preds=self.model(x)
         loss=self.criterion(preds,targets)
         
-        preds_unsqueeze=torch.squeeze(preds,1)
-        metric_value=self.train_metrics_base(preds_unsqueeze,targets)
+        metric_value=self.train_metrics_base(preds,targets)
         data_dict={"loss":loss,**metric_value}
         self.insert_each_metric_value_into_dict(data_dict,prefix="")
         
@@ -62,8 +61,7 @@ class LitRegressor(LitSystem):
         x,targets=batch
         preds=self.model(x)
         loss=self.criterion(preds,targets)
-        preds_unsqueeze=torch.squeeze(preds,1)
-        metric_value=self.valid_metrics_base(preds_unsqueeze,targets)
+        metric_value=self.valid_metrics_base(preds,targets)
         data_dict={"val_loss":loss,**metric_value}
         self.insert_each_metric_value_into_dict(data_dict,prefix="")
         
