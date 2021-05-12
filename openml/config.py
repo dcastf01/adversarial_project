@@ -12,8 +12,8 @@ class ModelsAvailable(Enum):
     densenet121="densenet121"
     
 class Dataset (Enum):
-    cifar_crop="cifar-10-diff10cropped.csv"
-    cifar_replace="cifar-10-diff10replace.csv"
+    cifar_crop="cifar-10-diff6cropped.csv"
+    cifar_replace="cifar-10-diff6replace.csv"
     
 class Optim(Enum):
     adam=1
@@ -31,7 +31,7 @@ class CONFIG(object):
     DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
     # TRAIN_DIR = "data/train"
     # VAL_DIR = "data/val"
-    batch_size:int = 256
+    batch_size:int = 1024
     dataset=Dataset.cifar_crop
     dataset_name:str=dataset.name
     precision_compute:int=16
@@ -59,6 +59,7 @@ class CONFIG(object):
     
     ##data
     path_data:str=r"D:\programacion\Repositorios\adversarial_project\openml\data"
-    
+    ##root path
+    root_path:str=""
 def create_config_dict(instance:CONFIG):
     return asdict(instance)
