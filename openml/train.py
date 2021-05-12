@@ -38,8 +38,7 @@ def main():
     config =wandb.config
     wandb.run.name=config.experiment_name+" "+\
                     datetime.datetime.utcnow().strftime("%Y-%m-%d %X"),
-    if config.root_path:
-        sys.path.append(config.root_path)
+
     data_module=build_dataset(path_data_csv=config.path_data,
                               dataset_name=config.dataset_name,
                               batch_size=config.batch_size

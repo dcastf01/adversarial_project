@@ -59,7 +59,6 @@ class CONFIG(object):
     
     ##data
     path_data:str=r"D:\programacion\Repositorios\adversarial_project\openml\data"
-    ##root path
-    root_path:str=""
+
 def create_config_dict(instance:CONFIG):
     return asdict(instance)
