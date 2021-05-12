@@ -5,7 +5,7 @@ import logging
 import sys
 
 from torch.utils import data
-# sys.path.append("")
+sys.path.append("/content/adversarial_project") #to work in colab
 import pytorch_lightning as pl
 import torch
 import wandb
