@@ -17,6 +17,8 @@ class Cifar10FromCSV(Dataset):
         
         self.dir_csv_file=dir_csv_file
         self.data=pd.read_csv(self.dir_csv_file,index_col="Unnamed: 0")
+        self.data.drop(columns="X",inplace=True)
+        print(self.data.columns)
         self.y=self.data.pop("Dffclt").to_numpy()
         self.data=self.data
         self.transform=A.Compose(
