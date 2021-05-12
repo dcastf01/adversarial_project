@@ -38,7 +38,7 @@ class LitRegressor(LitSystem):
                                        dropout1,
                                        dropout2,
                                        )
-        self.criterion=F.l1_loss #l1=MSE
+        self.criterion=F.smooth_l1_loss #cambio de loss function
         
     
     def forward(self,x):
