@@ -37,7 +37,7 @@ def main():
     
     config =wandb.config
     wandb.run.name=config.experiment_name+" "+\
-                    datetime.datetime.utcnow().strftime("%Y-%m-%d %X"),
+                    datetime.datetime.utcnow().strftime("%Y-%m-%d %X")
 
     data_module=build_dataset(path_data_csv=config.path_data,
                               dataset_name=config.dataset_name,
