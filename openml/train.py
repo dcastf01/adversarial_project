@@ -5,7 +5,7 @@ import logging
 import sys
 
 from torch.utils import data
-sys.path.append("/content/adversarial_project") #to work in colab
+# sys.path.append("/content/adversarial_project") #to work in colab
 import pytorch_lightning as pl
 import torch
 import wandb
@@ -17,7 +17,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.plugins import DDPPlugin
 
 from openml.autotune import autotune_lr
-from openml.build_dataset import build_dataset
+from openml.builders import build_dataset
 from openml.lit_regressor import LitRegressor
 
 
@@ -61,7 +61,7 @@ def main():
     ##callbacks
     
     early_stopping=EarlyStopping(
-                            monitor='_validMeanSquaredError',
+                            monitor='_val_loss',
                             mode="min",
                             patience=5)
     
@@ -79,7 +79,7 @@ def main():
                     #    accelerator="dpp",
                     #    plugins=DDPPlugin(find_unused_parameters=False),
                        callbacks=[
-                            # early_stopping ,
+                            early_stopping ,
                             # checkpoint_callback,
                             # confusion_matrix_wandb,
                             # learning_rate_monitor 
