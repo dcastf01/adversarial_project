@@ -10,15 +10,15 @@ import pytorch_lightning as pl
 import torch
 import wandb
 from openml.config import CONFIG,create_config_dict
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.plugins import DDPPlugin
+
 
 from openml.autotune import autotune_lr
-from openml.builders import build_dataset
+from openml.builders import build_dataset,get_trainer,get_callbacks
 from openml.lit_regressor import LitRegressor
+import os
+os.environ["WANDB_IGNORE_GLOBS"]="*.ckpt"
 
 
 def main():
@@ -36,7 +36,7 @@ def main():
                     )
     
     config =wandb.config
-    wandb.run.name=config.experiment_name+" "+\
+    wandb.run.name=config.experiment_name[:5]+" "+\
                     datetime.datetime.utcnow().strftime("%Y-%m-%d %X")
 
     data_module=build_dataset(path_data_csv=config.path_data,
@@ -55,37 +55,14 @@ def main():
         tanh2=config.tanh2,
         dropout1=config.dropout1,
         dropout2=config.dropout2,
+        is_mlp_preconfig=config.is_mlp_preconfig
         
         
                 )
-    ##callbacks
-    
-    early_stopping=EarlyStopping(
-                            monitor='_val_loss',
-                            mode="min",
-                            patience=5)
-    
-    trainer=pl.Trainer(
-                        logger=wandb_logger,
-                       gpus=[0],
-                       max_epochs=config.NUM_EPOCHS,
-                       precision=config.precision_compute,
-                    #    limit_train_batches=0.1, #only to debug
-                    #    limit_val_batches=0.05, #only to debug
-                    #    val_check_interval=1,
-                        auto_lr_find=config.AUTO_LR,
-                       log_gpu_memory=True,
-                    #    distributed_backend='ddp',
-                    #    accelerator="dpp",
-                    #    plugins=DDPPlugin(find_unused_parameters=False),
-                       callbacks=[
-                            early_stopping ,
-                            # checkpoint_callback,
-                            # confusion_matrix_wandb,
-                            # learning_rate_monitor 
-                                  ],
-                       progress_bar_refresh_rate=5,
-                       )
+
+    callbacks=get_callbacks(config,data_module)
+    #create trainer
+    trainer=get_trainer(wandb_logger,callbacks,config)
     
     model=autotune_lr(trainer,model,data_module,get_auto_lr=config.AUTO_LR)
     trainer.fit(model,data_module)
