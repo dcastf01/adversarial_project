@@ -51,7 +51,7 @@ class Cifar10FromCSV(Dataset):
         target=torch.unsqueeze(target,0)
         #pendiente aplicar transform simple a example
         
-        return img,target 
+        return img,target
     
     def __len__(self):
         
