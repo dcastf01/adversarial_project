@@ -31,7 +31,7 @@ class CONFIG(object):
     DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
     # TRAIN_DIR = "data/train"
     # VAL_DIR = "data/val"
-    batch_size:int = 2048
+    batch_size:int = 1024
     dataset=Dataset.cifar_crop
     dataset_name:str=dataset.name
     precision_compute:int=16
@@ -43,7 +43,7 @@ class CONFIG(object):
     NUM_WORKERS:int = 4
     SEED:int=1
     IMG_SIZE:int=32
-    NUM_EPOCHS :int= 30
+    NUM_EPOCHS :int= 50
     LOAD_MODEL :bool= True
     SAVE_MODEL :bool= True
     PATH_CHECKPOINT: str= os.path.join(ROOT_WORKSPACE,"/model/checkpoint")
@@ -51,14 +51,19 @@ class CONFIG(object):
     ##model
     features_out_layer1:int=1
     features_out_layer2:int=16
-    features_out_layer3:int=0
+    features_out_layer3:int=32
     tanh1:bool=False
-    tanh2:bool=False
+    tanh2:bool=True
     dropout1:float=0
     dropout2:float=0.2
+    is_mlp_preconfig:bool=False
     
     ##data
     path_data:str=r"/home/dcast/adversarial_project/openml/data"
+    
+    gpu0:bool=True
+    gpu1:bool=False
+    notes:str=" correr diferentes modelos para probar su funcionamiento"
 
 def create_config_dict(instance:CONFIG):
     return asdict(instance)

@@ -24,7 +24,7 @@ class LitRegressor(LitSystem):
                 tanh2:Optional[bool]=None,
                 dropout1:Optional[float]=None,
                 dropout2:Optional[float]=None,
-                 
+                is_mlp_preconfig:Optional[bool]=None
                  ):
         
         super().__init__( lr, optim=optim)
@@ -37,6 +37,7 @@ class LitRegressor(LitSystem):
                                        tanh2,
                                        dropout1,
                                        dropout2,
+                                       is_mlp_preconfig
                                        )
         self.criterion=F.smooth_l1_loss #cambio de loss function
         
@@ -90,7 +91,7 @@ class LitRegressor(LitSystem):
                         tanh2:Optional[bool]=None,
                         dropout1:Optional[float]=None,
                         dropout2:Optional[float]=None,
-                        
+                        is_mlp_preconfig:Optional[bool]=None
                         ):
         
         if isinstance(experiment_name,str):
@@ -105,13 +106,13 @@ class LitRegressor(LitSystem):
         if CONFIG.only_train_head:
             for param in self.model.parameters():
                 param.requires_grad=False
-        self.token_mean=nn.Parameter(torch.zeros(1))
+        self.token_mean=nn.Parameter(torch.zeros(3))
         
         if model_enum==ModelsAvailable.resnet50:
-            linear_sizes = [self.model.fc.out_features+1]
+            linear_sizes = [self.model.fc.out_features+3]
             # self.aditional_token=nn.Parameter(torch.zeros())
         elif model_enum==ModelsAvailable.densenet121:
-            linear_sizes=[self.model.classifier.out_features+1]
+            linear_sizes=[self.model.classifier.out_features+3]
             # self.aditional_token=nn.Parameter(torch.zeros())
  
         
@@ -127,16 +128,20 @@ class LitRegressor(LitSystem):
         linear_layers = [nn.Linear(in_f, out_f,) 
                        for in_f, out_f in zip(linear_sizes, linear_sizes[1:])]
         
-        if tanh1:
-            linear_layers.insert(0,nn.Tanh())
-        if dropout1:
-            linear_layers.insert(0,nn.Dropout(0.25))
-        if tanh2:
-            linear_layers.insert(-2,nn.Tanh())
-        if dropout2:
-            linear_layers.insert(-2,nn.Dropout(0.25))
-            
-        self.regressor=nn.Sequential(*linear_layers)
+        
+
+        if is_mlp_preconfig:
+            self.regressor=Mlp(linear_sizes[0],linear_sizes[1])
+        else:  
+            if tanh1:
+                linear_layers.insert(0,nn.Tanh())
+            if dropout1:
+                linear_layers.insert(0,nn.Dropout(0.25))
+            if tanh2:
+                linear_layers.insert(-2,nn.Tanh())
+            if dropout2:
+                linear_layers.insert(-2,nn.Dropout(0.25))
+            self.regressor=nn.Sequential(*linear_layers)
         
         if model_enum==ModelsAvailable.resnet50:
             # self.model.fc=self.regressor
@@ -144,4 +149,21 @@ class LitRegressor(LitSystem):
         elif model_enum==ModelsAvailable.densenet121:
             # self.model.classifier=self.regressor
             pass
-    
+
+def swish(x):
+    return x * torch.sigmoid(x)
+ACT2FN={"gelu": torch.nn.functional.gelu, "relu": torch.nn.functional.relu, "swish": swish}
+class Mlp(nn.Module):
+    def __init__(self, in_dim,hidden_dim,out_dim=1):
+        super(Mlp, self).__init__()
+        self.layer1 = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True)
+        )
+        self.layer2 = nn.Linear(hidden_dim, out_dim)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        return x
