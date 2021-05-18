@@ -1,24 +1,30 @@
-from openml.config import Dataset,CONFIG
-from openml.cifar_datamodule import Cifar10OpenMLDataModule
+import logging
 import os
 
+import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-import pytorch_lightning as pl
 from pytorch_lightning.plugins import DDPPlugin
-import logging
+
 from openml.callbacks import PredictionPlotsAfterTrain
+from openml.datamodule import OpenMLDataModule
+from openml.config import CONFIG, Dataset
+
 
 def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
                   batch_size:int=CONFIG.batch_size):
     
     
     dataset_enum=Dataset[dataset_name]
-    data_module=Cifar10OpenMLDataModule(data_dir=os.path.join(path_data_csv,dataset_enum.value),
-                                        batch_size=batch_size,
-                                        num_workers=CONFIG.NUM_WORKERS,
-                                        pin_memory=True)
+
+    data_module=OpenMLDataModule(data_dir=os.path.join(path_data_csv,dataset_enum.value),
+                                            batch_size=batch_size,
+                                            dataset=dataset_enum,
+                                            num_workers=CONFIG.NUM_WORKERS,
+                                            pin_memory=True)
+        
+
     data_module.setup()
     return data_module
 

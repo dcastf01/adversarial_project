@@ -3,8 +3,9 @@
 from typing import Tuple
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader,random_split
-from openml.cifar_dataset import Cifar10FromCSV
-class Cifar10OpenMLDataModule(LightningDataModule):
+from openml.loaders import Cifar10Loader,FashionMnistLoader
+from openml.config import Dataset
+class OpenMLDataModule(LightningDataModule):
     """
      A DataModule implements 5 key methods:
         - prepare_data (things to do on 1 GPU/TPU, not on every GPU/TPU in distributed mode)
@@ -19,7 +20,9 @@ class Cifar10OpenMLDataModule(LightningDataModule):
                  batch_size:int,
                  num_workers:int,
                  pin_memory:bool,
-                 train_val_test_split_percentage:Tuple[float,float,float]=(0.7,0.2,0.1)
+                 dataset:Dataset,
+                 train_val_test_split_percentage:Tuple[float,float,float]=(0.7,0.2,0.1),
+                 
                  
                  ):
         super().__init__()
@@ -29,14 +32,27 @@ class Cifar10OpenMLDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.dataset_enum=dataset
+        self.get_dataset()
         
+    
+    def get_dataset(self):
+        
+        if self.dataset_enum==Dataset.cifar_crop:
+            self.dataset=Cifar10Loader
+            
+        elif self.dataset_enum==Dataset.fashionmnist_Noref:
+            self.dataset=FashionMnistLoader
+        else:
+            raise ("select appropiate dataset")
     def prepare_data(self):
         """Se necesita el csv que proporciona Nando"""
         
         pass
+    
     def setup(self,stage=None):
         """Load data. Set variables: self.data_train, self.data_val, self.data_test."""
-        fulldataset = Cifar10FromCSV(self.data_dir,)
+        fulldataset = self.dataset(self.data_dir,)
         train_val_test_split= [round(split*len(fulldataset)) for split in self.train_val_test_split_percentage]
         self.data_train, self.data_val, self.data_test = random_split(
             fulldataset, train_val_test_split
