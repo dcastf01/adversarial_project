@@ -1,10 +1,15 @@
 
 
 from typing import Tuple
+
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import DataLoader,random_split
-from openml.loaders import Cifar10Loader,FashionMnistLoader
+from torch.utils.data import DataLoader, random_split
+
 from openml.config import Dataset
+from openml.loaders import (Cifar10Loader, FashionMnistLoader,
+                            GinaAgnosticLoader, MnistLoader, UMISTFacesLoader)
+
+
 class OpenMLDataModule(LightningDataModule):
     """
      A DataModule implements 5 key methods:
@@ -37,12 +42,25 @@ class OpenMLDataModule(LightningDataModule):
         
     
     def get_dataset(self):
-        
-        if self.dataset_enum==Dataset.cifar_crop:
+     
+        if self.dataset_enum in [Dataset.cifar_crop,Dataset.cifar_Ref]:
             self.dataset=Cifar10Loader
+            self.in_chans=3
             
-        elif self.dataset_enum==Dataset.fashionmnist_Noref:
+        elif self.dataset_enum in [Dataset.fashionmnist_Noref,Dataset.fashionmnist_ref]:
             self.dataset=FashionMnistLoader
+            self.in_chans=1
+            
+        elif self.dataset_enum== Dataset.mnist784_ref:
+            self.dataset=MnistLoader
+            self.in_chans=1
+        elif self.dataset_enum==Dataset.umistfaces_ref:
+            self.dataset=UMISTFacesLoader
+            
+            self.in_chans=1#comprobar
+        elif self.dataset_enum==Dataset.ginaagnostic_ref:
+            self.dataset=GinaAgnosticLoader
+            self.in_chans=3
         else:
             raise ("select appropiate dataset")
     def prepare_data(self):

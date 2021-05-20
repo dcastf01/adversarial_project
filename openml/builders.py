@@ -23,8 +23,6 @@ def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
                                             dataset=dataset_enum,
                                             num_workers=CONFIG.NUM_WORKERS,
                                             pin_memory=True)
-        
-
     data_module.setup()
     return data_module
 
