@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, random_split
 
 from openml.config import Dataset
 from openml.loaders import (Cifar10Loader, FashionMnistLoader,
-                            GinaAgnosticLoader, MnistLoader, UMISTFacesLoader)
+                             MnistLoader, UMISTFacesLoader)
 
 
 class OpenMLDataModule(LightningDataModule):
@@ -43,24 +43,22 @@ class OpenMLDataModule(LightningDataModule):
     
     def get_dataset(self):
      
-        if self.dataset_enum in [Dataset.cifar_crop,Dataset.cifar_Ref]:
+        if self.dataset_enum in [Dataset.cifar_crop,Dataset.cifar_ref]:
             self.dataset=Cifar10Loader
             self.in_chans=3
             
-        elif self.dataset_enum in [Dataset.fashionmnist_Noref,Dataset.fashionmnist_ref]:
+        elif self.dataset_enum in [Dataset.fashionmnist_noref,Dataset.fashionmnist_ref]:
             self.dataset=FashionMnistLoader
             self.in_chans=1
-            
-        elif self.dataset_enum== Dataset.mnist784_ref:
+                
+        elif self.dataset_enum== Dataset.mnist784_ref or Dataset.mnist784_classifier:
             self.dataset=MnistLoader
             self.in_chans=1
         elif self.dataset_enum==Dataset.umistfaces_ref:
             self.dataset=UMISTFacesLoader
             
             self.in_chans=1#comprobar
-        elif self.dataset_enum==Dataset.ginaagnostic_ref:
-            self.dataset=GinaAgnosticLoader
-            self.in_chans=3
+
         else:
             raise ("select appropiate dataset")
     def prepare_data(self):

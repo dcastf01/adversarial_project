@@ -1,27 +1,26 @@
 import datetime
 import logging
-
-
 import sys
 
+from pytorch_lightning.core import datamodule
 from torch.utils import data
+
 # sys.path.append("/content/adversarial_project") #to work in colab
+sys.path.append("/home/dcast/adversarial_project")
+import os
+
 import pytorch_lightning as pl
 import torch
-import wandb
-from openml.config import CONFIG,create_config_dict
-
 from pytorch_lightning.loggers import WandbLogger
 
-
+import wandb
 from openml.autotune import autotune_lr
-from openml.builders import build_dataset,get_trainer,get_callbacks
-from openml.lit_regressor import LitRegressor
-import os
-os.environ["WANDB_IGNORE_GLOBS"]="*.ckpt"
+from openml.builders import build_dataset, get_callbacks, get_trainer,get_system
+from openml.config import CONFIG, create_config_dict
 
 
 def main():
+    os.environ["WANDB_IGNORE_GLOBS"]="*.ckpt"
     print("empezando setup del experimento")
     torch.backends.cudnn.benchmark = True
     config=CONFIG()
@@ -33,6 +32,7 @@ def main():
     
     wandb_logger = WandbLogger(
                     # offline=True,
+                    log_model=False
                     )
     
     config =wandb.config
@@ -44,21 +44,7 @@ def main():
                               batch_size=config.batch_size
                               )
     
-    model=LitRegressor(
-        experiment_name=config.experiment_name,
-        lr=config.lr,
-        optim=config.optim_name,
-        features_out_layer1=config.features_out_layer1,
-        features_out_layer2=config.features_out_layer2,
-        features_out_layer3=config.features_out_layer3,
-        tanh1=config.tanh1,
-        tanh2=config.tanh2,
-        dropout1=config.dropout1,
-        dropout2=config.dropout2,
-        is_mlp_preconfig=config.is_mlp_preconfig
-        
-        
-                )
+    model=get_system(config,data_module)
 
     callbacks=get_callbacks(config,data_module)
     #create trainer

@@ -17,29 +17,43 @@ class Loader(Dataset):
         
         self.dir_csv_file=dir_csv_file
         self.data=pd.read_csv(self.dir_csv_file,index_col="Unnamed: 0")
-        print(self.data.columns)
+
         if "X" in self.data.columns:
             self.data.drop(columns="X",inplace=True) #x son las filas que Nando no ha eliminado, el indice original
-        self.y=self.data.pop("Dffclt").to_numpy()
+        if "class" in self.data.columns:
+            self.labels=self.data.pop("class").to_numpy()
+        else:
+            self.labels=None
+        if "Hard" in self.data.columns:
+            self.y=self.data.pop("Hard").to_numpy()
+            self.data.pop("Dffclt")
+        else:
+            self.y=self.data.pop("Dffclt").to_numpy()
         self.data=self.data
         self.reshape_shape=reshape_shape
         self.einum_reshape=einum_reshape
         self.transform=transform
         
     def __getitem__(self, index):
+        img=self._create_image_from_dataframe(index)
         
+        target=torch.tensor(self.y[index],dtype=torch.float)
+        target=torch.unsqueeze(target,0)
+        #pendiente aplicar transform simple a example
+        if self.labels is None:
+            return img,target,index
+        else:
+            label=torch.tensor(self.labels[index],dtype=int)
+            label=torch.unsqueeze(label,0)
+            return img,target,index,label
+    def _create_image_from_dataframe(self,index):
         example=self.data.iloc[index]
         example=np.array(example,dtype=int)
         example=example.reshape(self.reshape_shape)  
         example = np.einsum(self.einum_reshape, example)
         augmentations=self.transform(image=example)
         img=augmentations["image"]
-        target=torch.tensor(self.y[index],dtype=torch.float)
-        target=torch.unsqueeze(target,0)
-        #pendiente aplicar transform simple a example
-        
-        return img,target,index
-    
+        return img
     def __len__(self):
         
         return self.data.shape[0]
@@ -115,20 +129,5 @@ class UMISTFacesLoader(Loader):
                 )
         super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
         
-class GinaAgnosticLoader(Loader):
-    
-    def __init__(self, dir_csv_file: str) -> None:
-        reshape_shape=(28,28) #revisar
-        einum_reshape='ij->ij'
-        transform=A.Compose(
-        [
-            A.Normalize(
-                mean=[0.5],
-                std=[0.5],
-                max_pixel_value=255,
-                ),
-            ToTensorV2(),
-                ]
-                )
-        super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
+
         

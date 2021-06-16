@@ -17,6 +17,7 @@ class LitRegressor(LitSystem):
                  experiment_name:str,
                 lr:float,
                 optim: str,
+                in_chans:int,
                 features_out_layer1:Optional[int]=None,
                 features_out_layer2:Optional[int]=None,
                 features_out_layer3:Optional[int]=None,
@@ -30,6 +31,7 @@ class LitRegressor(LitSystem):
         super().__init__( lr, optim=optim)
         
         self.generate_model(experiment_name,
+                            in_chans,
                                        features_out_layer1,
                                        features_out_layer2,
                                        features_out_layer3,
@@ -50,12 +52,14 @@ class LitRegressor(LitSystem):
         token_mean=self.token_mean.expand(x.shape[0],-1)
         x=torch.cat((x,token_mean),dim=1)
         y=self.regressor(x)
-        
+        y=torch.clamp(y,min=-6,max=+6)
         return y
     
     def training_step(self, batch,batch_idx):
-        
-        x,targets=batch
+        if len(batch)==3:
+            x,targets,index=batch
+        elif len(batch)==4:
+            x,targets,index,labels=batch
         preds=self.step(x)
         loss=self.criterion(preds,targets)
         preds=torch.squeeze(preds,1)
@@ -64,16 +68,14 @@ class LitRegressor(LitSystem):
         data_dict={"loss":loss,**metric_value}
         self.insert_each_metric_value_into_dict(data_dict,prefix="")
         
-        
         return loss
     
     def validation_step(self, batch,batch_idx):
-        x,targets=batch
-        x=self.model(x)
-        token_mean=self.token_mean.expand(x.shape[0],-1)
-        x=torch.cat((x,token_mean),dim=1)
-        preds=self.regressor(x)
-        # preds=self.step(x)
+        if len(batch)==3:
+            x,targets,index=batch
+        elif len(batch)==4:
+            x,targets,index,labels=batch
+        preds=self.step(x)
         loss=self.criterion(preds,targets)
         preds=torch.squeeze(preds,1)
         targets=torch.squeeze(targets,1)
@@ -83,7 +85,9 @@ class LitRegressor(LitSystem):
         
     
     def generate_model(self,
+                        
                         experiment_name:str,
+                        in_chans:int,
                         features_out_layer1:Optional[int]=None,
                         features_out_layer2:Optional[int]=None,
                         features_out_layer3:Optional[int]=None,
@@ -96,10 +100,12 @@ class LitRegressor(LitSystem):
         
         if isinstance(experiment_name,str):
             model_enum=ModelsAvailable[experiment_name.lower()]
+            
+        extras=dict(in_chans=in_chans)
         self.model=timm.create_model(
                                     model_enum.value,
                                     pretrained=CONFIG.PRETRAINED_MODEL,
-                                    
+                                    **extras
                                     )
         # 
         
@@ -114,6 +120,8 @@ class LitRegressor(LitSystem):
         elif model_enum==ModelsAvailable.densenet121:
             linear_sizes=[self.model.classifier.out_features+3]
             # self.aditional_token=nn.Parameter(torch.zeros())
+        elif model_enum==ModelsAvailable.vgg16:
+            linear_sizes=[self.model.head.fc.out_features+3]
  
         
         
@@ -143,12 +151,12 @@ class LitRegressor(LitSystem):
                 linear_layers.insert(-2,nn.Dropout(0.25))
             self.regressor=nn.Sequential(*linear_layers)
         
-        if model_enum==ModelsAvailable.resnet50:
-            # self.model.fc=self.regressor
-            pass
-        elif model_enum==ModelsAvailable.densenet121:
-            # self.model.classifier=self.regressor
-            pass
+        # if model_enum==ModelsAvailable.resnet50:
+        #     self.model.fc=self.regressor
+        #     pass
+        # elif model_enum==ModelsAvailable.densenet121:
+        #     self.model.classifier=self.regressor
+        #     pass
 
 def swish(x):
     return x * torch.sigmoid(x)

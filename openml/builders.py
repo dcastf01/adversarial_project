@@ -6,10 +6,11 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
-
+from openml.lit_classifier import LitClassifier
 from openml.callbacks import PredictionPlotsAfterTrain
 from openml.datamodule import OpenMLDataModule
 from openml.config import CONFIG, Dataset
+from openml.lit_regressor import LitRegressor
 
 
 def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
@@ -31,7 +32,7 @@ def get_callbacks(config,dm):
     
     early_stopping=EarlyStopping(monitor='_val_loss',
                                  mode="min",
-                                patience=5,
+                                patience=10,
                                  verbose=True,
                                  check_finite =True
                                  )
@@ -48,14 +49,48 @@ def get_callbacks(config,dm):
     
     prediction_plot_test=PredictionPlotsAfterTrain(dm.test_dataloader(),prefix="test")
     prediction_plot_train=PredictionPlotsAfterTrain(dm.train_dataloader(),prefix="train")
+    
+    # grad_cam=GradCam()
+
     callbacks=[
+        # grad_cam,
         prediction_plot_test,
         prediction_plot_train,
         learning_rate_monitor,
         early_stopping,
         
+        
             ]
     return callbacks
+
+def get_system(config,dm):
+    dataset_name=config.dataset_name
+    dataset_enum=Dataset[dataset_name]
+    if dataset_enum==Dataset.mnist784_classifier:
+        
+        system=LitClassifier(
+            model_name=config.experiment_name,
+            lr=config.lr,
+            optim=config.optim_name,
+            in_chans=dm.in_chans
+                             )
+    else:
+        system=LitRegressor(
+            experiment_name=config.experiment_name,
+            lr=config.lr,
+            optim=config.optim_name,
+            in_chans=dm.in_chans,
+            features_out_layer1=config.features_out_layer1,
+            features_out_layer2=config.features_out_layer2,
+            features_out_layer3=config.features_out_layer3,
+            tanh1=config.tanh1,
+            tanh2=config.tanh2,
+            dropout1=config.dropout1,
+            dropout2=config.dropout2,
+            is_mlp_preconfig=config.is_mlp_preconfig
+                    )
+        
+    return system
 
 def get_trainer(wandb_logger,callbacks,config):
     
@@ -73,9 +108,7 @@ def get_trainer(wandb_logger,callbacks,config):
         distributed_backend=None
         accelerator=None
         plugins=None
-        
-    
-        
+
     trainer=pl.Trainer(
                     logger=wandb_logger,
                        gpus=gpus,

@@ -130,3 +130,5 @@ dmypy.json
 
 wandb/
 openml/data
+*.jpg
+*.png

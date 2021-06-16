@@ -25,14 +25,19 @@ class LitSystem(pl.LightningModule):
            
     
     def on_epoch_start(self):
-        torch.cuda.empty_cache()
-            
+        # torch.cuda.empty_cache()
+        pass
+    
     def configure_optimizers(self):
         if self.optim==Optim.adam:
             optimizer= torch.optim.Adam(self.parameters(), lr=self.lr)
         elif self.optim==Optim.sgd:
-            optimizer= torch.optim.SGD(self.parameters(), lr=self.lr)
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=range(100,500,100),gamma=0.9)
+            optimizer= torch.optim.SGD(self.parameters(), lr=self.lr,momentum=0.9)
+        # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=range(15,100,10),gamma=0.95)
+        scheduler=WarmupCosineSchedule(optimizer,warmup_steps=int(50*0.1),t_total=50)
+        # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+        #                                                  max_lr=self.lr, steps_per_epoch=self.steps_per_epoch,
+        #                                 epochs=self.epochs, pct_start=0.2, cycle_momentum=False, div_factor=20)
         return [optimizer], [scheduler]
 
     def insert_each_metric_value_into_dict(self,data_dict:dict,prefix:str):
@@ -55,3 +60,25 @@ class LitSystem(pl.LightningModule):
             data_dict_aux["_".join([prefix,k])]=v
             
         return data_dict_aux
+    
+import math
+
+from torch.optim.lr_scheduler import LambdaLR
+class WarmupCosineSchedule(LambdaLR):
+    """ Linear warmup and then cosine decay.
+        Linearly increases learning rate from 0 to 1 over `warmup_steps` training steps.
+        Decreases learning rate from 1. to 0. over remaining `t_total - warmup_steps` steps following a cosine curve.
+        If `cycles` (default=0.5) is different from default, learning rate follows cosine function after warmup.
+    """
+    def __init__(self, optimizer, warmup_steps, t_total, cycles=.5, last_epoch=-1):
+        self.warmup_steps = warmup_steps
+        self.t_total = t_total
+        self.cycles = cycles
+        super(WarmupCosineSchedule, self).__init__(optimizer, self.lr_lambda, last_epoch=last_epoch)
+
+    def lr_lambda(self, step):
+        if step < self.warmup_steps:
+            return float(step) / float(max(1.0, self.warmup_steps))
+        # progress after warmup
+        progress = float(step - self.warmup_steps) / float(max(1, self.t_total - self.warmup_steps))
+        return max(0.0, 0.5 * (1. + math.cos(math.pi * float(self.cycles) * 2.0 * progress)))
