@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Archivo actual",
+            "name": "only my code",
             "type": "python",
             "request": "launch",
             "program": "${file}",
@@ -13,6 +13,16 @@
             "cwd": "${workspaceFolder}",
             "env": { "PYTHONPATH": "${workspaceFolder}"},
             "justMyCode": true,
+        },
+        {
+            "name": "all_code",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": { "PYTHONPATH": "${workspaceFolder}"},
+            "justMyCode": false,
         }
     ]
 }

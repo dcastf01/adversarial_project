@@ -132,3 +132,7 @@ wandb/
 openml/data
 *.jpg
 *.png
+*.csv
+*.xlsx
+*.DS_Store
+*.pkl

@@ -51,6 +51,8 @@ class Loader(Dataset):
         example=np.array(example,dtype=int)
         example=example.reshape(self.reshape_shape)  
         example = np.einsum(self.einum_reshape, example)
+        # print(np.amax(example))
+        # print(np.amin(example))
         augmentations=self.transform(image=example)
         img=augmentations["image"]
         return img

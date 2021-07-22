@@ -39,15 +39,19 @@ class CONFIG(object):
 
     #torch config
     batch_size:int = 1024
-    dataset=Dataset.mnist784_classifier
+    dataset=Dataset.cifar_crop
     dataset_name:str=dataset.name
     precision_compute:int=32
     optim=Optim.adam
     optim_name:str=optim.name
-    lr:float = 0.01
+    lr:float = 0.001
     AUTO_LR :bool= False
+    
+    num_fold:int=5 #if 0 is not kfold train
+    repetitions:int=2
+    
     # LAMBDA_IDENTITY = 0.0
-    NUM_WORKERS:int = 0
+    NUM_WORKERS:int = 4
     SEED:int=1
     IMG_SIZE:int=28
     NUM_EPOCHS :int= 50
@@ -58,19 +62,21 @@ class CONFIG(object):
     ##model
     features_out_layer1:int=1
     features_out_layer2:int=64
-    features_out_layer3:int=256
+    features_out_layer3:int=64
     tanh1:bool=False
     tanh2:bool=False
     dropout1:float=0.2
     dropout2:float=0.3
-    is_mlp_preconfig:bool=False
+    is_mlp_preconfig:bool=True
     
     ##data
     path_data:str=r"/home/dcast/adversarial_project/openml/data"
     
-    gpu0:bool=False
+    gpu0:bool=False  
     gpu1:bool=True
-    notes:str=" correr diferentes modelos para probar su funcionamiento"
+    notes:str=" "
 
 def create_config_dict(instance:CONFIG):
     return asdict(instance)
+
+

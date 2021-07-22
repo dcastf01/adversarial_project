@@ -1,20 +1,63 @@
-from pytorch_lightning.callbacks.base import Callback
-import pandas as pd
-from seaborn.palettes import color_palette
-from torch.utils.data import DataLoader
-import pytorch_lightning as pl
-import torch
-import wandb
 import math
-import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error,mean_squared_error
-import pytorch_grad_cam
-from PIL import Image
-import numpy as np
-from pytorch_grad_cam.utils.svd_on_activations import get_2d_projection
-import cv2
 import os
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytorch_grad_cam
+import pytorch_lightning as pl
 import seaborn as sns
+import torch
+from PIL import Image
+from pytorch_grad_cam.utils.svd_on_activations import get_2d_projection
+from pytorch_lightning.callbacks.base import Callback
+from seaborn.palettes import color_palette
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader, random_split
+
+import wandb
+
+
+class SplitDatasetWithKFoldStrategy(Callback):
+    
+    def __init__(self,folds,repetitions,dm,only_train_and_test=False) -> None:
+        super().__init__()
+        self.folds=folds
+        self.repetitions=repetitions
+        self.train_val_dataset_initial=torch.utils.data.ConcatDataset([dm.data_train,dm.data_val])
+        self.only_train_and_test=only_train_and_test
+        kf = KFold(n_splits=folds)
+
+        self.indices_folds={}
+        
+        for fold, (train_ids, test_ids) in enumerate(kf.split(self.train_val_dataset_initial)):
+            self.indices_folds[fold]={
+                "train_ids":train_ids,
+                "test_ids":test_ids
+            }
+        self.current_fold=0   
+
+    def create_fold_dataset(self,num_fold,trainer,pl_module):
+        
+        train_ids=self.indices_folds[num_fold]["train_ids"]
+        test_ids=self.indices_folds[num_fold]["test_ids"]
+        trainer.datamodule.data_train=torch.utils.data.Subset(self.train_val_dataset_initial,train_ids)
+        trainer.datamodule.data_val=torch.utils.data.Subset(self.train_val_dataset_initial,test_ids)
+    
+    def create_all_train_dataset(self,trainer):
+        
+        trainer.datamodule.data_val=self.train_val_dataset_initial
+        trainer.datamodule.data_train=self.train_val_dataset_initial
+
+    def on_fit_start(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
+        if self.only_train_and_test:
+            self.create_all_train_dataset(trainer)
+        else:
+            self.create_fold_dataset(pl_module.num_fold,trainer,pl_module)
+        return super().on_train_start(trainer, pl_module)
+
 class gradCAMRegressorOneChannel(pytorch_grad_cam.GradCAM):
     def __init__(self, model,
                  target_layer, 
@@ -30,14 +73,14 @@ class gradCAMRegressorOneChannel(pytorch_grad_cam.GradCAM):
     
 class PredictionPlotsAfterTrain(Callback):
     
-    def __init__(self,dataloader:DataLoader,prefix=None) -> None:
+    def __init__(self,split:str=None) -> None:
         super(PredictionPlotsAfterTrain,self).__init__()
-        self.dataloader=dataloader
         self.all_test_pred=pd.DataFrame()
-        self.prefix=prefix
+        self.split=split
         self.folder_images="/home/dcast/adversarial_project/openml/results"
+        self.prefix=split
         
-    def _generate_df_from_test(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
+    def _generate_df_from_split(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
         for batch in self.dataloader:
             if len(batch)==3:
                 image,target,idx=batch
@@ -82,9 +125,6 @@ class PredictionPlotsAfterTrain(Callback):
         self.all_test_pred["rank_target"]=self.all_test_pred.target.rank(method="average")
         self.all_test_pred["rank_results"]=self.all_test_pred.results.rank(method="average")
         self.all_test_pred=self.all_test_pred.sort_values("rank_target").reset_index(drop=True)
-        
-        
-        self._plots_scatter_rank_plot(trainer)
 
         ##plotear imágenes dificiles
         df_sorted_hard=self.all_test_pred.sort_values("target",ascending=False).head(5)
@@ -95,9 +135,15 @@ class PredictionPlotsAfterTrain(Callback):
         text=self.prefix+" lowest"
         self.generate_images_and_upload(trainer,df_sorted_easy,text=text)
         
-        self.__generate_image_with_grad_cam(df_sorted_hard,trainer,pl_module,"hard")
-        self.__generate_image_with_grad_cam(df_sorted_easy,trainer,pl_module,"easy")
+        self.all_test_pred["error"]=(self.all_test_pred["target"]-self.all_test_pred["results"]).abs()
+      
+        df_sorted_less_error=self.all_test_pred.sort_values("error",ascending=True).head(5)
+        # print(df_sorted_less_error)
+        # self.__generate_image_with_grad_cam(df_sorted_hard,trainer,pl_module,"hard")
+        # self.__generate_image_with_grad_cam(df_sorted_easy,trainer,pl_module,"easy")
+        # self.__generate_image_with_grad_cam(df_sorted_less_error,trainer,pl_module,"minor_error")
         
+        # self._plots_scatter_rank_plot(trainer) #reactivate
         
         
         ##plotear imágenes dificiles que han sido predichas como fáciles
@@ -113,26 +159,39 @@ class PredictionPlotsAfterTrain(Callback):
         self.generate_images_and_upload(trainer,df_images_predict_hard_but_the_true_is_there_are_easy,text=text)
         
     def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
-        a=trainer.logger
+        if self.split=="train":
+            self.dataloader=trainer.datamodule.train_dataloader()
+        elif self.split=="val":
+            self.dataloader=trainer.datamodule.val_dataloader()
+        elif self.split=="test":
+            self.dataloader=trainer.datamodule.test_dataloader()
+        
 
-        self._generate_df_from_test(trainer,pl_module)
+        self._generate_df_from_split(trainer,pl_module)
    
         return super().on_train_end(trainer, pl_module)
     
-    def __generate_image_with_grad_cam(self,df,trainer,pl_module,text):
+    def __generate_image_with_grad_cam(self,df,trainer:'pl.Trainer',pl_module,text):
+        def revert_normalization(img,mean,std):
+            return (img*std+mean)
         target_layer=list(pl_module.model.children())[-4] #con menos 4 funciona
         cam=gradCAMRegressorOneChannel(model=pl_module,target_layer=target_layer,use_cuda=True)
         df=df.head(5)
+        normalize=trainer.datamodule.data_train.dataset.transform.transforms[0]
+        # normalize=
+        mean=normalize.mean
+        std=normalize.std
         if "labels" in df.columns:
-            iterator=zip(df.id_image,df.labels)
+            iterator=zip(df.id_image,df.labels,df.target,df.results)
         else:
-            iterator=df.id_image
+            iterator=zip (df.id_image, df.target,df.results)
         for batch in iterator:  
-            if len(batch)==1:
-                idx=batch 
+            if len(batch)==3:#isinstance(batch,int):
+                idx,target,results=batch
                 label=None
+                
             else:
-                idx,label=batch     
+                idx,label,target,results=batch     
             image=torch.unsqueeze(self.dataloader.dataset.dataset._create_image_from_dataframe(idx),dim=0).to(device=pl_module.device)
             grayscale_cam=cam(input_tensor=image,eigen_smooth=False)#si no funciona poner en True
             
@@ -145,9 +204,15 @@ class PredictionPlotsAfterTrain(Callback):
             image=image.cpu().numpy()
             gray=image[0,:,:,:]
             gray=np.moveaxis(gray,0,-1)
-
-            img_bw_with_3_channels=cv2.merge((gray,gray,gray))
-            img_to_save=np.uint8((img_bw_with_3_channels+1)*127.5)
+            if gray.shape[-1]!=3:
+               
+                img_bw_with_3_channels=cv2.merge((gray,gray,gray))
+                img_to_save=np.uint8((img_bw_with_3_channels+1)*127.5)
+            else:
+                img_bw_with_3_channels=gray    
+                img_bw_with_3_channels=revert_normalization(img_bw_with_3_channels,mean,std)
+                img_to_save=np.uint8(img_bw_with_3_channels*255)
+            # 
             img=Image.fromarray(img_to_save)
             img.save(os.path.join(self.folder_images,f"{text} {idx} image_3_channel.png"))
             heatmap=cv2.applyColorMap(np.uint8(255 * grayscale_cam), cv2.COLORMAP_PLASMA   )
@@ -166,10 +231,10 @@ class PredictionPlotsAfterTrain(Callback):
             
             img.save(os.path.join(self.folder_images,f"{text} {idx} probando.png"))
             trainer.logger.experiment.log({
-                "graficas gradcam "+self.prefix:wandb.Image(img,caption=f" {idx} grad cam, Label {label} "),
+                "graficas gradcam "+self.prefix:wandb.Image(img,caption=f" {idx} grad cam, Label {label}, Target: {target}, Pred: {results} "),
                             })
             
-    def _plots_scatter_rank_plot(self,trainer):
+    def _plots_scatter_rank_plot(self,trainer:'pl.Trainer'):
         self._bar_rank_plot(trainer,
                             xlabel1="valores ordenador por target",
                             xlabel2="valores ordenador por results",
@@ -177,6 +242,7 @@ class PredictionPlotsAfterTrain(Callback):
                             title="grafico de barras para correlacionar valores por ranking")
         
         if "labels" in self.all_test_pred.columns:
+            self.all_test_pred.to_csv("/home/dcast/adversarial_project/openml/results_to_Carlos.csv")
             self.all_test_pred=self.all_test_pred.sample(frac=0.01)
             self._scatter_plot(x=self.all_test_pred.target,
                            y=self.all_test_pred.results,
@@ -194,9 +260,6 @@ class PredictionPlotsAfterTrain(Callback):
                            title="Grafico de dispersion") 
         
 
-        
-        
-        
     def _scatter_plot(self,x,y,xname,yname,trainer,title,labels=None):
         alpha=None
         fig = plt.figure(figsize=(14,7))
@@ -233,21 +296,22 @@ class PredictionPlotsAfterTrain(Callback):
         plt.close()
 
     def generate_images_and_upload(self,trainer,df:pd.DataFrame,text:str):
-       
-        images=[]
-        for idx in df.id_image:
-            images.append(self.dataloader.dataset.dataset._create_image_from_dataframe(idx))
-        if "labels" in df.columns:
-            trainer.logger.experiment.log({
-                f"{text}/examples": [
-                    wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}, Num: {label}") 
-                        for x, pred, target,label in zip(images, df.results, df.target,df.labels)
-                    ],
-                })
-        else:
-            trainer.logger.experiment.log({
-                f"{text}/examples": [
-                    wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}") 
-                        for x, pred, target in zip(images, df.results, df.target)
-                    ],
-                })
+        pass
+    
+        # images=[]
+        # for idx in df.id_image:
+        #     images.append(self.dataloader.dataset.dataset._create_image_from_dataframe(idx))
+        # if "labels" in df.columns:
+        #     trainer.logger.experiment.log({
+        #         f"{text}/examples": [
+        #             wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}, Num: {label}") 
+        #                 for x, pred, target,label in zip(images, df.results, df.target,df.labels)
+        #             ],
+        #         })
+        # else:
+        #     trainer.logger.experiment.log({
+        #         f"{text}/examples": [
+        #             wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}") 
+        #                 for x, pred, target in zip(images, df.results, df.target)
+        #             ],
+        #         })

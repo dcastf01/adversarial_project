@@ -5,12 +5,12 @@ from typing import Tuple
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, random_split
 
-from openml.config import Dataset
-from openml.loaders import (Cifar10Loader, FashionMnistLoader,
-                             MnistLoader, UMISTFacesLoader)
+from irt_to_nlp.config import Dataset
+from irt_to_nlp.loader_nlp import Loader
 
 
-class OpenMLDataModule(LightningDataModule):
+from irt_to_nlp.config import ModelAvailable
+class NLPDataModule(LightningDataModule):
     """
      A DataModule implements 5 key methods:
         - prepare_data (things to do on 1 GPU/TPU, not on every GPU/TPU in distributed mode)
@@ -26,11 +26,12 @@ class OpenMLDataModule(LightningDataModule):
                  num_workers:int,
                  pin_memory:bool,
                  dataset:Dataset,
-                 train_val_test_split_percentage:Tuple[float,float,float]=(0.5,0.2,0.3),
+                 model_name:str,
+                 train_val_test_split_percentage:Tuple[float,float,float]=(0.7,0.3),
+                 
                  
                  
                  ):
-        
         super().__init__()
         self.data_dir=data_dir
         self.data_dir = data_dir
@@ -39,29 +40,9 @@ class OpenMLDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.dataset_enum=dataset
-        self.get_dataset()
+        self.dataset=Loader
+        self.model=ModelAvailable[model_name]
         
-    
-    def get_dataset(self):
-     
-        if self.dataset_enum in [Dataset.cifar_crop,Dataset.cifar_ref]:
-            self.dataset=Cifar10Loader
-            self.in_chans=3
-            
-        elif self.dataset_enum in [Dataset.fashionmnist_noref,Dataset.fashionmnist_ref]:
-            self.dataset=FashionMnistLoader
-            self.in_chans=1
-                
-        elif self.dataset_enum== Dataset.mnist784_ref or  self.dataset_enum==Dataset.mnist784_classifier:
-            self.dataset=MnistLoader
-            self.in_chans=1
-        elif self.dataset_enum==Dataset.umistfaces_ref:
-            self.dataset=UMISTFacesLoader
-            
-            self.in_chans=1#comprobar
-
-        else:
-            raise ("select appropiate dataset")
     def prepare_data(self):
         """Se necesita el csv que proporciona Nando"""
         
@@ -69,13 +50,12 @@ class OpenMLDataModule(LightningDataModule):
     
     def setup(self,stage=None):
         """Load data. Set variables: self.data_train, self.data_val, self.data_test."""
-        fulldataset = self.dataset(self.data_dir,)
+        fulldataset = self.dataset(self.data_dir,self.model)
         train_val_test_split= [round(split*len(fulldataset)) for split in self.train_val_test_split_percentage]
-        if not sum(train_val_test_split)==len(fulldataset):
-            train_val_test_split[0]+=1
-        self.data_train, self.data_val, self.data_test = random_split(
+        self.data_train, self.data_val = random_split(
             fulldataset, train_val_test_split
         )
+        self.data_test=self.data_val
 
     def train_dataloader(self):
         return DataLoader(

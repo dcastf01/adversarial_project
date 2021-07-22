@@ -6,20 +6,20 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
-from openml.lit_classifier import LitClassifier
-from openml.callbacks import PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy
-from openml.datamodule import OpenMLDataModule
-from openml.config import CONFIG, Dataset
-from openml.lit_regressor import LitRegressor
+from irt_to_nlp.callbacks import PredictionPlotsAfterTrain
+from irt_to_nlp.datamodule import NLPDataModule
+from irt_to_nlp.config import CONFIG, Dataset
+from irt_to_nlp.lit_nlp import LitNLPRegressor
 
 
 def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
-                  batch_size:int=CONFIG.batch_size):
+                  batch_size:int=CONFIG.batch_size,model_name:str=CONFIG.model_name):
     
     
     dataset_enum=Dataset[dataset_name]
 
-    data_module=OpenMLDataModule(data_dir=os.path.join(path_data_csv,dataset_enum.value),
+    data_module=NLPDataModule(data_dir=os.path.join(path_data_csv,dataset_enum.value),
+                              model_name=model_name,
                                             batch_size=batch_size,
                                             dataset=dataset_enum,
                                             num_workers=CONFIG.NUM_WORKERS,
@@ -27,7 +27,7 @@ def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
     data_module.setup()
     return data_module
 
-def get_callbacks(config,dm,only_train_and_test=False):
+def get_callbacks(config,dm):
     #callbacks
     
     early_stopping=EarlyStopping(monitor='_val_loss',
@@ -47,68 +47,28 @@ def get_callbacks(config,dm,only_train_and_test=False):
                         )
     learning_rate_monitor=LearningRateMonitor(logging_interval="epoch")
     
-    prediction_plot_test=PredictionPlotsAfterTrain(split="test")
-    prediction_plot_val=PredictionPlotsAfterTrain(split="val")
+    prediction_plot_test=PredictionPlotsAfterTrain(dm.val_dataloader(),prefix="val")
+    prediction_plot_train=PredictionPlotsAfterTrain(dm.train_dataloader(),prefix="train")
     
-    prediction_plot_train=PredictionPlotsAfterTrain(split="train")
-    if config.num_fold>=1:
-        
-        split_dataset=SplitDatasetWithKFoldStrategy(folds=config.num_fold,repetitions=config.repetitions,
-                                                    dm=dm,
-                                                    only_train_and_test=only_train_and_test)
+    # grad_cam=GradCam()
 
-        callbacks=[
-            # grad_cam,
-            prediction_plot_test,
-            prediction_plot_val,
-            prediction_plot_train,
-            learning_rate_monitor,
-            # early_stopping,
-            split_dataset,
-            
-                ]
-    else:
-        callbacks=[
-            # grad_cam,
-            prediction_plot_test,
-            prediction_plot_val,
-            prediction_plot_train,
-            learning_rate_monitor,
-            # early_stopping,
-            
-                ]
+    callbacks=[
+        # grad_cam,
+        prediction_plot_test,
+        prediction_plot_train,
+        learning_rate_monitor,
+        early_stopping,
         
+        
+            ]
     return callbacks
 
-def get_system(config,dm,num_fold=0):
-    dataset_name=config.dataset_name
-    dataset_enum=Dataset[dataset_name]
-    if dataset_enum==Dataset.mnist784_classifier:
+def get_system(config):
+
+    return    LitNLPRegressor(lr=config.lr,
+                    optim=config.optim_name,
+                    model_name=config.model_name)
         
-        system=LitClassifier(
-            model_name=config.experiment_name,
-            lr=config.lr,
-            optim=config.optim_name,
-            in_chans=dm.in_chans
-                             )
-    else:
-        system=LitRegressor(
-            experiment_name=config.experiment_name,
-            lr=config.lr,
-            optim=config.optim_name,
-            in_chans=dm.in_chans,
-            features_out_layer1=config.features_out_layer1,
-            features_out_layer2=config.features_out_layer2,
-            features_out_layer3=config.features_out_layer3,
-            tanh1=config.tanh1,
-            tanh2=config.tanh2,
-            dropout1=config.dropout1,
-            dropout2=config.dropout2,
-            is_mlp_preconfig=config.is_mlp_preconfig,
-            num_fold=num_fold
-                    )
-        
-    return system
 
 def get_trainer(wandb_logger,callbacks,config):
     
@@ -133,8 +93,7 @@ def get_trainer(wandb_logger,callbacks,config):
                        max_epochs=config.NUM_EPOCHS,
                        precision=config.precision_compute,
                     #    limit_train_batches=0.1, #only to debug
-                    #    limit_val_batches=0.1, #only to debug
-                    #    limit_test_batches=0.1,
+                    #    limit_val_batches=0.05, #only to debug
                     #    val_check_interval=1,
                         auto_lr_find=config.AUTO_LR,
                        log_gpu_memory=True,

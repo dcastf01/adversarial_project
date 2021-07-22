@@ -25,7 +25,8 @@ class LitRegressor(LitSystem):
                 tanh2:Optional[bool]=None,
                 dropout1:Optional[float]=None,
                 dropout2:Optional[float]=None,
-                is_mlp_preconfig:Optional[bool]=None
+                is_mlp_preconfig:Optional[bool]=None,
+                num_fold:Optional[int]=None
                  ):
         
         super().__init__( lr, optim=optim)
@@ -42,6 +43,7 @@ class LitRegressor(LitSystem):
                                        is_mlp_preconfig
                                        )
         self.criterion=F.smooth_l1_loss #cambio de loss function
+        self.num_fold=num_fold
         
     
     def forward(self,x):
@@ -82,7 +84,19 @@ class LitRegressor(LitSystem):
         metric_value=self.valid_metrics_base(preds,targets)
         data_dict={"val_loss":loss,**metric_value}
         self.insert_each_metric_value_into_dict(data_dict,prefix="")
-        
+    
+    def test_step(self, batch,batch_idx):
+        if len(batch)==3:
+            x,targets,index=batch
+        elif len(batch)==4:
+            x,targets,index,labels=batch
+        preds=self.step(x)
+        loss=self.criterion(preds,targets)
+        preds=torch.squeeze(preds,1)
+        targets=torch.squeeze(targets,1)
+        metric_value=self.test_metrics_base(preds,targets)
+        data_dict={"test_loss":loss,**metric_value}
+        self.insert_each_metric_value_into_dict(data_dict,prefix="")
     
     def generate_model(self,
                         
@@ -112,10 +126,10 @@ class LitRegressor(LitSystem):
         if CONFIG.only_train_head:
             for param in self.model.parameters():
                 param.requires_grad=False
-        self.token_mean=nn.Parameter(torch.zeros(3))
+        self.token_mean=nn.Parameter(torch.zeros(2))
         
         if model_enum==ModelsAvailable.resnet50:
-            linear_sizes = [self.model.fc.out_features+3]
+            linear_sizes = [self.model.fc.out_features+2]
             # self.aditional_token=nn.Parameter(torch.zeros())
         elif model_enum==ModelsAvailable.densenet121:
             linear_sizes=[self.model.classifier.out_features+3]
@@ -133,14 +147,12 @@ class LitRegressor(LitSystem):
         if features_out_layer1:   
             linear_sizes.append(features_out_layer1)
             
-        linear_layers = [nn.Linear(in_f, out_f,) 
-                       for in_f, out_f in zip(linear_sizes, linear_sizes[1:])]
-        
-        
 
         if is_mlp_preconfig:
             self.regressor=Mlp(linear_sizes[0],linear_sizes[1])
         else:  
+            linear_layers = [nn.Linear(in_f, out_f,) 
+                       for in_f, out_f in zip(linear_sizes, linear_sizes[1:])]
             if tanh1:
                 linear_layers.insert(0,nn.Tanh())
             if dropout1:
