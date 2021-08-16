@@ -11,17 +11,25 @@ class ModelsAvailable(Enum):
     resnet50="resnet50"
     densenet121="densenet121"
     vgg16="vgg16"
+    alexnet="alexnet"
+    googlenet="googlenet"
+    tf_efficientnet_b0="tf_efficientnet_b0"
+    tf_efficientnet_b4="tf_efficientnet_b4"
+    tf_efficientnet_b7="tf_efficientnet_b7"
     
 class Dataset (Enum):
-    cifar_crop="cifar-10-diff6cropped.csv"
-    cifar_replace="cifar-10-diff6replace.csv"
-    cifar_ref="cifar-10.Diff6.RefClass.csv"
-    fashionmnist_noref="Fashion-MNIST.Diff6.NoRefClass.csv"
-    fashionmnist_ref="Fashion-MNIST.Diff6.RefClass.csv"
-    mnist784_ref="mnist_784V2.Diff6.RefClass.csv"
-    umistfaces_ref="UMIST_Faces_Cropped.Diff6.RefClass.csv"
-    mnist784_classifier="mnist_784V2.Clasification.csv"
+    cifar_crop="cifar-10.Class_Dffclt_Dscrmn_MeanACC.csv"
+    cifar_replace="cifar-10-diff6replace.csv" # out of date
+    cifar_ref="cifar-10.Diff6.RefClass.csv"# out of date
+    fashionmnist_noref="Fashion-MNIST.Diff6.NoRefClass.csv"# out of date
+    fashionmnist_ref="Fashion-MNIST.Class_Dffclt_Dscrmn_MeanACC.csv"
+    mnist784_ref="mnist_784.Class_Dffclt_Dscrmn_MeanACC.csv"
+    umistfaces_ref="UMIST_Faces.Class_Dffclt_Dscrmn_MeanACC.csv"
+    mnist784_classifier="mnist_784V2.Clasification.csv"# out of date
     
+class TargetModel(Enum):
+    regresor_model=1
+    classifier_model=2   
     
 class Optim(Enum):
     adam=1
@@ -31,12 +39,14 @@ class Optim(Enum):
 @dataclass
 class CONFIG(object):
     
-    experiment=ModelsAvailable.resnet50
+    experiment=ModelsAvailable.densenet121
     experiment_name:str=experiment.name
     experiment_net:str=experiment.value
     PRETRAINED_MODEL:bool=True
     only_train_head:bool=False #solo se entrena el head
 
+    target_model=TargetModel.regresor_model
+    target_name:str=target_model.name
     #torch config
     batch_size:int = 1024
     dataset=Dataset.cifar_crop
@@ -47,13 +57,13 @@ class CONFIG(object):
     lr:float = 0.001
     AUTO_LR :bool= False
     
-    num_fold:int=5 #if 0 is not kfold train
+    num_fold:int=5 #if 0 is not kfold train 
     repetitions:int=2
     
     # LAMBDA_IDENTITY = 0.0
-    NUM_WORKERS:int = 4
+    NUM_WORKERS:int = 0
     SEED:int=1
-    IMG_SIZE:int=28
+    # IMG_SIZE:int=28
     NUM_EPOCHS :int= 50
     LOAD_MODEL :bool= True
     SAVE_MODEL :bool= True
@@ -74,7 +84,10 @@ class CONFIG(object):
     
     gpu0:bool=False  
     gpu1:bool=True
-    notes:str=" "
+    notes:str="final experiments"
+    
+    version:int=2
+    
 
 def create_config_dict(instance:CONFIG):
     return asdict(instance)

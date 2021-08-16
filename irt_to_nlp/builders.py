@@ -6,11 +6,10 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
-from irt_to_nlp.callbacks import PredictionPlotsAfterTrain
+from irt_to_nlp.callbacks import PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy
 from irt_to_nlp.datamodule import NLPDataModule
 from irt_to_nlp.config import CONFIG, Dataset
 from irt_to_nlp.lit_nlp import LitNLPRegressor
-
 
 def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
                   batch_size:int=CONFIG.batch_size,model_name:str=CONFIG.model_name):
@@ -27,7 +26,7 @@ def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
     data_module.setup()
     return data_module
 
-def get_callbacks(config,dm):
+def get_callbacks(config,dm,only_train_and_test=False):
     #callbacks
     
     early_stopping=EarlyStopping(monitor='_val_loss',
@@ -47,27 +46,36 @@ def get_callbacks(config,dm):
                         )
     learning_rate_monitor=LearningRateMonitor(logging_interval="epoch")
     
-    prediction_plot_test=PredictionPlotsAfterTrain(dm.val_dataloader(),prefix="val")
-    prediction_plot_train=PredictionPlotsAfterTrain(dm.train_dataloader(),prefix="train")
+    prediction_plot_test=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="test")
+    prediction_plot_val=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="val")
     
-    # grad_cam=GradCam()
-
+    prediction_plot_train=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="train")
+        
     callbacks=[
-        # grad_cam,
+        early_stopping,
+        prediction_plot_val,
         prediction_plot_test,
         prediction_plot_train,
         learning_rate_monitor,
-        early_stopping,
+        
         
         
             ]
+    if config.num_fold>=1:
+        
+        split_dataset=SplitDatasetWithKFoldStrategy(folds=config.num_fold,repetitions=config.repetitions,
+                                                    dm=dm,
+                                                    only_train_and_test=only_train_and_test)
+        callbacks.append(split_dataset)
     return callbacks
 
-def get_system(config):
+def get_system(config,num_fold=0,):
 
     return    LitNLPRegressor(lr=config.lr,
                     optim=config.optim_name,
-                    model_name=config.model_name)
+                    model_name=config.model_name,
+                    num_fold=num_fold,
+                    )
         
 
 def get_trainer(wandb_logger,callbacks,config):

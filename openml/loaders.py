@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import albumentations as A
 from timm.data.constants import IMAGENET_DEFAULT_MEAN,IMAGENET_DEFAULT_STD
-from torchvision.transforms.transforms import ToTensor
+from torchvision.transforms.transforms import Resize, ToTensor
+from torchvision import transforms
 from albumentations.pytorch import ToTensorV2
-
+import cv2
 class Loader(Dataset):
     
     def __init__(self,dir_csv_file:str,reshape_shape:tuple,einum_reshape:str,transform:A.Compose) -> None:
@@ -20,6 +21,10 @@ class Loader(Dataset):
 
         if "X" in self.data.columns:
             self.data.drop(columns="X",inplace=True) #x son las filas que Nando no ha eliminado, el indice original
+        if "meanACC" in self.data.columns:
+            self.data.drop(columns="meanACC",inplace=True)
+        if "Dscrmn" in self.data.columns:
+            self.data.drop(columns="Dscrmn",inplace=True)
         if "class" in self.data.columns:
             self.labels=self.data.pop("class").to_numpy()
         else:
@@ -31,6 +36,7 @@ class Loader(Dataset):
             self.y=self.data.pop("Dffclt").to_numpy()
         self.data=self.data
         self.reshape_shape=reshape_shape
+     
         self.einum_reshape=einum_reshape
         self.transform=transform
         
@@ -51,10 +57,16 @@ class Loader(Dataset):
         example=np.array(example,dtype=int)
         example=example.reshape(self.reshape_shape)  
         example = np.einsum(self.einum_reshape, example)
+        example=Image.fromarray(np.uint8(example))
+        # if example.shape[0]<32:
+        #     # img
+        #     example = cv2.resize(example, dsize=(32, 32), interpolation=cv2.INTER_CUBIC)
         # print(np.amax(example))
         # print(np.amin(example))
-        augmentations=self.transform(image=example)
-        img=augmentations["image"]
+        # augmentations=self.transform(image=example)
+        # img=augmentations["image"]
+        img=self.transform(example)
+        # img=augmentations
         return img
     def __len__(self):
         
@@ -62,7 +74,7 @@ class Loader(Dataset):
     
     
 class Cifar10Loader(Loader):
-    def __init__(self, dir_csv_file: str) -> None:
+    def __init__(self, dir_csv_file: str,input_size) -> None:
         reshape_shape=(3,32,32)
         einum_reshape='ijk->jki'
         transform=A.Compose(
@@ -78,30 +90,44 @@ class Cifar10Loader(Loader):
                 ]
                 
                 )
+        transform=transforms.Compose([
+                                    # transforms.Resize((input_size, input_size), Image.BILINEAR),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(0.5, 0.5)]
+                       )  
         super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
         
 class FashionMnistLoader(Loader):
-    def __init__(self, dir_csv_file: str) -> None:
+    def __init__(self, dir_csv_file: str,input_size:int) -> None:
         reshape_shape=(28,28)
         einum_reshape='ij->ij'
-        transform=A.Compose(
-        [
-            A.Normalize(
-                mean=[0.5],
-                std=[0.5],
-                max_pixel_value=255,
-                ),
-            ToTensorV2(),
-                ]
-                )
+        # transform=A.Compose(
+        # [   
+        #     # A.Resize(32,32),
+        #     A.Normalize(
+        #         mean=[0.5],
+        #         std=[0.5],
+        #         max_pixel_value=255,
+        #         ),
+            
+        #     ToTensorV2(),
+        #         ]
+        #         )
+       
+        transform=transforms.Compose([
+                                    transforms.Resize((input_size, input_size), Image.BILINEAR),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(0.5, 0.5)]
+                       )         
         super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
         
 class MnistLoader(Loader):
-    def __init__(self, dir_csv_file: str) -> None:
+    def __init__(self, dir_csv_file: str,input_size:int) -> None:
         reshape_shape=(28,28) #revisar
         einum_reshape='ij->ij'
         transform=A.Compose(
         [
+            # A.Resize(32,32),
             A.Normalize(
                 mean=[0.5],
                 std=[0.5],
@@ -110,10 +136,15 @@ class MnistLoader(Loader):
             ToTensorV2(),
                 ]
                 )
+        transform=transforms.Compose([
+                                    transforms.Resize((input_size, input_size), Image.BILINEAR),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(0.5, 0.5)]
+                       )      
         super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
         
 class UMISTFacesLoader(Loader):  
-    def __init__(self, dir_csv_file: str) -> None:
+    def __init__(self, dir_csv_file: str,input_size) -> None:
         reshape_shape=(112,92) #revisar
         einum_reshape='ij->ij'
         transform=A.Compose(
@@ -129,6 +160,11 @@ class UMISTFacesLoader(Loader):
                 ]
                 
                 )
+        transform=transforms.Compose([
+                                    # transforms.Resize((input_size, input_size), Image.BILINEAR),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(0.5, 0.5)]
+                       )    
         super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
         
 

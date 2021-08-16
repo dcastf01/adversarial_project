@@ -27,6 +27,7 @@ class OpenMLDataModule(LightningDataModule):
                  pin_memory:bool,
                  dataset:Dataset,
                  train_val_test_split_percentage:Tuple[float,float,float]=(0.5,0.2,0.3),
+                 input_size=None
                  
                  
                  ):
@@ -39,26 +40,35 @@ class OpenMLDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.dataset_enum=dataset
+        self.input_size=input_size
         self.get_dataset()
         
-    
+
     def get_dataset(self):
      
         if self.dataset_enum in [Dataset.cifar_crop,Dataset.cifar_ref]:
             self.dataset=Cifar10Loader
             self.in_chans=3
+            if self.input_size is None:
+                self.input_size=None
             
         elif self.dataset_enum in [Dataset.fashionmnist_noref,Dataset.fashionmnist_ref]:
             self.dataset=FashionMnistLoader
             self.in_chans=1
+            if self.input_size is None:
+                self.input_size=32
                 
         elif self.dataset_enum== Dataset.mnist784_ref or  self.dataset_enum==Dataset.mnist784_classifier:
             self.dataset=MnistLoader
             self.in_chans=1
+            if self.input_size is None:
+                self.input_size=32
         elif self.dataset_enum==Dataset.umistfaces_ref:
             self.dataset=UMISTFacesLoader
             
             self.in_chans=1#comprobar
+            if self.input_size is None:
+                self.input_size=None
 
         else:
             raise ("select appropiate dataset")
@@ -69,7 +79,7 @@ class OpenMLDataModule(LightningDataModule):
     
     def setup(self,stage=None):
         """Load data. Set variables: self.data_train, self.data_val, self.data_test."""
-        fulldataset = self.dataset(self.data_dir,)
+        fulldataset = self.dataset(self.data_dir,self.input_size)
         train_val_test_split= [round(split*len(fulldataset)) for split in self.train_val_test_split_percentage]
         if not sum(train_val_test_split)==len(fulldataset):
             train_val_test_split[0]+=1

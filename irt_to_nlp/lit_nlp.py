@@ -6,30 +6,33 @@ import torch.nn.functional as F
 from openml.lit_system import LitSystem
 
 from irt_to_nlp.config import ModelAvailable
-from irt_to_nlp.nlp_model_with_regressor import (CustomBertBaseCased,
+from irt_to_nlp.nlp_model_with_regressor import (CustomBertBase,
                                                  CustomDistiledBertBaseCased,
                                                  CustomGPTNeo, CustomDistiledGPT2)
 
 
 class LitNLPRegressor(LitSystem):
     
-    def __init__(self, lr, optim: str,model_name:str):
-        super().__init__(lr, optim=optim)
+    def __init__(self, lr, optim: str,model_name:str,num_fold:int):
+        super().__init__(lr, optim=optim,)
    
         self.get_model(model_name)
-        self.criterion=F.smooth_l1_loss #cambio de loss function 
+        # self.criterion=F.smooth_l1_loss #cambio de loss function 
+        # self.criterion=F.l1_loss
+        self.criterion=F.mse_loss
+        self.num_fold=num_fold
         # F.mse_loss
 
-    def forward(self, x):
+    def forward(self, x,attention_mask=None):
         
-        y=self.model(x)        
+        y=self.model(x,attention_mask)        
         y=torch.clamp(y,min=-6,max=+6)
         return y
         
     def training_step(self, batch,batch_idx ):
-        x,targets,index=batch
+        x,attention_mask,targets,index=batch
         # ids=self.tokenizer(x) ya viene tokenizado
-        preds=self.forward(x)
+        preds=self.forward(x,attention_mask)
         loss=self.criterion(preds,targets)
         preds=torch.squeeze(preds,1)
         targets=torch.squeeze(targets,1)
@@ -40,8 +43,8 @@ class LitNLPRegressor(LitSystem):
         return loss
 
     def validation_step(self, batch,batch_idx) :
-        x,targets,index=batch
-        preds=self.forward(x)
+        x,attention_mask,targets,index=batch
+        preds=self.forward(x,attention_mask)
         loss=self.criterion(preds,targets)
         preds=torch.squeeze(preds,1)
         targets=torch.squeeze(targets,1)
@@ -58,7 +61,7 @@ class LitNLPRegressor(LitSystem):
                 params.requires_grad=False
                 
         elif model_enum==ModelAvailable.bert_base_cased:
-            self.model:CustomBertBaseCased=CustomBertBaseCased()
+            self.model:CustomBertBase=CustomBertBase("bert-base-cased")
             
         elif model_enum==ModelAvailable.distilbert_base_uncased:
         
@@ -67,6 +70,11 @@ class LitNLPRegressor(LitSystem):
         elif model_enum==ModelAvailable.distilgpt2:
             
             self.model:CustomDistiledGPT2=CustomDistiledGPT2()
+            
+        elif model_enum==ModelAvailable.bert_base_uncased:
+            self.model:CustomBertBase=CustomBertBase("bert-base-uncased")
+        elif model_enum==ModelAvailable.bert_base_multilingual_uncased_sentiment:
+            self.model:CustomBertBase=CustomBertBase("nlptown/bert-base-multilingual-uncased-sentiment")
             # ct=0
             # for child in self.model.model.children():
             #     ct += 1

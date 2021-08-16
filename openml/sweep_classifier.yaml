@@ -1,0 +1,62 @@
+program: /home/dcast/adversarial_project/openml/train.py
+method: grid
+metric:
+  goal: maximize
+  name: _validAccuracy
+name: classificadores para cifar
+parameters:
+ 
+  notes:
+    value: clasificadores
+
+  gpu1:
+    value: False
+  gpu0:
+    value: True
+
+  target_name:
+    value: classifier_model
+
+  experiment_name:
+    values:
+      - densenet121
+      - resnet50
+      - vgg16
+      - alexnet
+      - googlenet
+      - tf_efficientnet_b0
+      - tf_efficientnet_b4
+      - tf_efficientnet_b7
+    distribution: categorical
+
+  dataset_name:
+    value: cifar_crop
+    
+  NUM_WORKERS:
+    value: 0
+   
+  optim_name:
+    value: adam
+    
+  batch_size:
+    value: 1024
+    
+  NUM_EPOCHS:
+    value: 50
+    
+  path_data:
+    value: /home/dcast/adversarial_project/openml/data
+
+  num_fold:
+    value: 0
+
+  repetitions:
+    value: 0
+  IMG_SIZE:
+    value: 32
+
+  lr:
+    values:
+      - 0.1
+      - 0.01
+      - 0.001

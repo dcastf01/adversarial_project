@@ -10,13 +10,14 @@ class LitSystem(pl.LightningModule):
                  
                   lr,
                   optim:str="SGD",
+                  is_regresor:bool=True
                   ):
         
         super().__init__()
 
-        self.train_metrics_base=get_metrics_collections_base(prefix="train")
-        self.valid_metrics_base=get_metrics_collections_base(prefix="valid")
-        self.test_metrics_base=get_metrics_collections_base(prefix="test")
+        self.train_metrics_base=get_metrics_collections_base(prefix="train",is_regressor=is_regresor)
+        self.valid_metrics_base=get_metrics_collections_base(prefix="valid",is_regressor=is_regresor)
+        self.test_metrics_base=get_metrics_collections_base(prefix="test",is_regressor=is_regresor)
         # log hyperparameters
         self.save_hyperparameters()    
         self.lr=lr

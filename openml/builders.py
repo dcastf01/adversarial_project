@@ -9,7 +9,7 @@ from pytorch_lightning.plugins import DDPPlugin
 from openml.lit_classifier import LitClassifier
 from openml.callbacks import PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy
 from openml.datamodule import OpenMLDataModule
-from openml.config import CONFIG, Dataset
+from openml.config import CONFIG, Dataset,TargetModel
 from openml.lit_regressor import LitRegressor
 
 
@@ -27,7 +27,7 @@ def build_dataset(path_data_csv:str,dataset_name:str=CONFIG.dataset_name,
     data_module.setup()
     return data_module
 
-def get_callbacks(config,dm,only_train_and_test=False):
+def get_callbacks(config:CONFIG,dm,only_train_and_test=False):
     #callbacks
     
     early_stopping=EarlyStopping(monitor='_val_loss',
@@ -47,10 +47,16 @@ def get_callbacks(config,dm,only_train_and_test=False):
                         )
     learning_rate_monitor=LearningRateMonitor(logging_interval="epoch")
     
-    prediction_plot_test=PredictionPlotsAfterTrain(split="test")
-    prediction_plot_val=PredictionPlotsAfterTrain(split="val")
     
-    prediction_plot_train=PredictionPlotsAfterTrain(split="train")
+    is_regressor=True if TargetModel[config.target_name]==TargetModel.regresor_model else False
+  
+    prediction_plot_test=PredictionPlotsAfterTrain(config.dataset_name,config.experiment_name,split="test",
+                                                   is_regressor=is_regressor,lr_used=config.lr)
+    prediction_plot_val=PredictionPlotsAfterTrain(config.dataset_name,config.experiment_name,split="val",
+                                                  is_regressor=is_regressor,lr_used=config.lr)
+    
+    prediction_plot_train=PredictionPlotsAfterTrain(config.dataset_name,config.experiment_name,split="train",
+                                                    is_regressor=is_regressor,lr_used=config.lr)
     if config.num_fold>=1:
         
         split_dataset=SplitDatasetWithKFoldStrategy(folds=config.num_fold,repetitions=config.repetitions,
@@ -83,13 +89,14 @@ def get_callbacks(config,dm,only_train_and_test=False):
 def get_system(config,dm,num_fold=0):
     dataset_name=config.dataset_name
     dataset_enum=Dataset[dataset_name]
-    if dataset_enum==Dataset.mnist784_classifier:
+    if config.target_name==TargetModel.classifier_model.name:
         
         system=LitClassifier(
             model_name=config.experiment_name,
             lr=config.lr,
             optim=config.optim_name,
-            in_chans=dm.in_chans
+            in_chans=dm.in_chans,
+            num_fold=num_fold
                              )
     else:
         system=LitRegressor(
@@ -105,7 +112,8 @@ def get_system(config,dm,num_fold=0):
             dropout1=config.dropout1,
             dropout2=config.dropout2,
             is_mlp_preconfig=config.is_mlp_preconfig,
-            num_fold=num_fold
+            num_fold=num_fold,
+            
                     )
         
     return system

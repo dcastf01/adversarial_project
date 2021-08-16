@@ -17,7 +17,7 @@ from tqdm import tqdm
 from openml.config import CONFIG, Dataset
 from openml.datamodule import OpenMLDataModule
 
-
+#cd /home/dcast/adversarial_project ; /usr/bin/env /home/dcast/anaconda3/envs/deep_learning_torch/bin/python -- /home/dcast/adversarial_project/openml/creating_images_different_epsilon.py 
 def get_image_label_diff_index(dataset):
     images=[]
     diffs=[]
@@ -52,7 +52,7 @@ def get_image_label_diff_index(dataset):
 # x_train = np.transpose(x_train, (0, 3, 1, 2)).astype(np.float32)
 # x_test = np.transpose(x_test, (0, 3, 1, 2)).astype(np.float32)
 
-dataset_enum=Dataset.mnist784_ref
+dataset_enum=Dataset.fashionmnist_ref
 batch_size=64
 workers=0
 path_data_csv=CONFIG.path_data
@@ -62,7 +62,8 @@ data_module=OpenMLDataModule(data_dir=os.path.join(path_data_csv,dataset_enum.va
                                             batch_size=batch_size,
                                             dataset=dataset_enum,
                                             num_workers=workers,
-                                            pin_memory=True)
+                                            pin_memory=True,
+                                            input_size=28)
 data_module.setup()
 
 dataloader_train=data_module.train_dataloader()
@@ -231,9 +232,12 @@ difficulties=[]
 clases=[]
 is_adversariales=[]
 lrs=[]
-pre_df=pd.read_csv("data.csv")
-number_iterations=[]
+
+name_csv=f"{dataset_enum.name}_data.csv"
+pre_df=pd.read_csv(name_csv)
 # pre_df=pd.DataFrame()
+number_iterations=[]
+
 lr=1e-10
 num_images=100
 for img,y,index,diff in tqdm(zip(x_test,y_test,indexs_test,diff_test),total=num_images):
@@ -273,7 +277,7 @@ data={"id":indices,
               }
 df1=pd.DataFrame(data=data)
 df_total=pd.concat([df1,pre_df])
-df_total.to_csv("data.csv",index=False)
+df_total.to_csv(name_csv,index=False)
 # Step 8: Inspect results
 print("finish")
 # # orig 7, guide 6

@@ -27,7 +27,7 @@ class NLPDataModule(LightningDataModule):
                  pin_memory:bool,
                  dataset:Dataset,
                  model_name:str,
-                 train_val_test_split_percentage:Tuple[float,float,float]=(0.7,0.3),
+                 train_val_test_split_percentage:Tuple[float,float,float]=(0.5,0.2,0.3),
                  
                  
                  
@@ -52,10 +52,14 @@ class NLPDataModule(LightningDataModule):
         """Load data. Set variables: self.data_train, self.data_val, self.data_test."""
         fulldataset = self.dataset(self.data_dir,self.model)
         train_val_test_split= [round(split*len(fulldataset)) for split in self.train_val_test_split_percentage]
-        self.data_train, self.data_val = random_split(
+        
+        
+        if not sum(train_val_test_split)==len(fulldataset):
+            train_val_test_split[0]+=1
+        self.data_train, self.data_val, self.data_test = random_split(
             fulldataset, train_val_test_split
         )
-        self.data_test=self.data_val
+
 
     def train_dataloader(self):
         return DataLoader(

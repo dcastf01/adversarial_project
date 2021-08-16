@@ -28,7 +28,7 @@ def apply_train_test():
         #create trainer
         trainer=get_trainer(wandb_logger,callbacks,config)
         
-        model=autotune_lr(trainer,model,data_module,get_auto_lr=config.AUTO_LR)
+        # model=autotune_lr(trainer,model,data_module,get_auto_lr=config.AUTO_LR)
         
         result=trainer.fit(model,data_module)
         if run_test:
@@ -66,7 +66,7 @@ def apply_train_test():
     if num_fold is None or num_fold==0:
         wandb.run.name=config.experiment_name[:5]+" "+\
                     datetime.datetime.utcnow().strftime("%Y-%m-%d %X")
-        get_new_system_and_do_training_and_test(config,data_module,wandb_logger,callbacks,num_fold=num_fold)
+        get_new_system_and_do_training_and_test(config,data_module,wandb_logger,callbacks,num_fold=num_fold,run_test=True)
         
     else:
         results=[]

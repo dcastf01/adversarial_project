@@ -48,7 +48,7 @@ class SplitDatasetWithKFoldStrategy(Callback):
     
     def create_all_train_dataset(self,trainer):
         
-        trainer.datamodule.data_val=self.train_val_dataset_initial
+        trainer.datamodule.data_val=trainer.datamodule.data_test
         trainer.datamodule.data_train=self.train_val_dataset_initial
 
     def on_fit_start(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
@@ -73,14 +73,19 @@ class gradCAMRegressorOneChannel(pytorch_grad_cam.GradCAM):
     
 class PredictionPlotsAfterTrain(Callback):
     
-    def __init__(self,split:str=None) -> None:
+    def __init__(self,dataset_name:str,model_name:str,split:str=None,is_regressor:bool=True,lr_used:int=0.001) -> None:
         super(PredictionPlotsAfterTrain,self).__init__()
-        self.all_test_pred=pd.DataFrame()
+        self.df_pred=pd.DataFrame()
         self.split=split
         self.folder_images="/home/dcast/adversarial_project/openml/results"
+        self.folder_csv_result="/home/dcast/adversarial_project/openml/data/results"
         self.prefix=split
+        self.dataset_name=dataset_name
+        self.model_name=model_name
+        self.is_regressor=is_regressor
+        self.lr_used=lr_used
         
-    def _generate_df_from_split(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
+    def _generate_df_from_split_depend_on_target_model(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
         for batch in self.dataloader:
             if len(batch)==3:
                 image,target,idx=batch
@@ -88,11 +93,24 @@ class PredictionPlotsAfterTrain(Callback):
                 image,target,idx,labels=batch
             with torch.no_grad():
                 results=pl_module(image.to(device=pl_module.device))
+            labels=labels.cpu().numpy()[:,0]
+            target=target.cpu().numpy()[:,0]
+            if self.is_regressor:
+                results=results.cpu().numpy()[:,0]
+                
+            else:
+                # target=target.cpu().numpy()[:,0]
+                # labels=labels.cpu().numpy()[:,0]
+                # a=torch.argmax(results,dim=1).cpu().numpy()
+                results=torch.argmax(results,dim=1).cpu().numpy()
+                
+                # results=results.cpu().numpy()
+                
             if len(batch)==3:
                 valid_pred_df = pd.DataFrame({
                     # "image":image.cpu().numpy()[:,0],
-                    "target":target.cpu().numpy()[:,0],
-                    "results":results.cpu().numpy()[:,0],
+                    "Dffclt":target,
+                    "results":results,
                     "id_image": idx,
                     # "norm_PRED_Dffclt": valid_pred[:, 0],
                     # "norm_PRED_Dscrmn": valid_pred[:, 1],
@@ -101,75 +119,99 @@ class PredictionPlotsAfterTrain(Callback):
                
                 valid_pred_df = pd.DataFrame({
                     # "image":image.cpu().numpy()[:,0],
-                    "target":target.cpu().numpy()[:,0],
-                    "results":results.cpu().numpy()[:,0],
-                    "labels":labels.cpu().numpy()[:,0],
+                    "Dffclt":target,
+                    "results":results,
+                    "labels":labels,#.cpu().numpy()[:,0],
                     "id_image": idx,
                     # "norm_PRED_Dffclt": valid_pred[:, 0],
                     # "norm_PRED_Dscrmn": valid_pred[:, 1],
                 })
-            self.all_test_pred=pd.concat([self.all_test_pred,valid_pred_df])
-        corr=self.all_test_pred.corr(method="spearman")        
-        mae=mean_absolute_error(self.all_test_pred["target"],self.all_test_pred["results"])
-        mae_relative=mae/self.all_test_pred["target"].std()
-        mse=mean_squared_error(self.all_test_pred["target"],self.all_test_pred["results"])
-        mse_relative=mse/self.all_test_pred["target"].std()
-        trainer.logger.experiment.log({
-            "CorrSpearman "+self.prefix:corr.iloc[0,1],
-            "mae "+self.prefix:mae,
-            "mae relative "+self.prefix: mae_relative,
-            "mse "+self.prefix :mse ,
-            "mse relative "+self.prefix :mse_relative ,
+            if not self.is_regressor:
+                valid_pred_df["acierta"]=np.where( valid_pred_df['results'] == valid_pred_df['labels'] , '1', '0')
+                # (valid_pred_df["results"]==valid_pred_df["labels"])
+            self.df_pred=pd.concat([self.df_pred,valid_pred_df])
+            # print(self.df_pred.head(5))
             
-                })
-        self.all_test_pred["rank_target"]=self.all_test_pred.target.rank(method="average")
-        self.all_test_pred["rank_results"]=self.all_test_pred.results.rank(method="average")
-        self.all_test_pred=self.all_test_pred.sort_values("rank_target").reset_index(drop=True)
+            
+    def _generate_results_if_target_model_is_regressor(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
+        if self.is_regressor:
+            corr=self.df_pred.corr(method="spearman")        
+            mae=mean_absolute_error(self.df_pred["Dffclt"],self.df_pred["results"])
+            mae_relative=mae/self.df_pred["Dffclt"].std()
+            mse=mean_squared_error(self.df_pred["Dffclt"],self.df_pred["results"])
+            mse_relative=mse/self.df_pred["Dffclt"].std()
+            trainer.logger.experiment.log({
+                "CorrSpearman "+self.prefix:corr.iloc[0,1],
+                "mae "+self.prefix:mae,
+                "mae relative "+self.prefix: mae_relative,
+                "mse "+self.prefix :mse ,
+                "mse relative "+self.prefix :mse_relative ,
+                
+                    })
+            self.df_pred["rank_Dffclt"]=self.df_pred.Dffclt.rank(method="average")
+            self.df_pred["rank_results"]=self.df_pred.results.rank(method="average")
+            self.df_pred=self.df_pred.sort_values("rank_Dffclt").reset_index(drop=True)
+            
+                
+            ##plotear imágenes dificiles
+            # df_sorted_hard=self.df_pred.sort_values("target",ascending=False).head(5)
+            # text=self.prefix+" higher"
+            # self.generate_images_and_upload(trainer,df_sorted_hard,text=text)
+            # ##plotear imágenes fáciles
+            # df_sorted_easy=self.df_pred.sort_values("target",ascending=True).head(5)
+            # text=self.prefix+" lowest"
+            # self.generate_images_and_upload(trainer,df_sorted_easy,text=text)
+            
+            # self.df_pred["error"]=(self.df_pred["target"]-self.df_pred["results"]).abs()
+        
+            # df_sorted_less_error=self.df_pred.sort_values("error",ascending=True).head(5)
+            # print(df_sorted_less_error)
+            # self.__generate_image_with_grad_cam(df_sorted_hard,trainer,pl_module,"hard")
+            # self.__generate_image_with_grad_cam(df_sorted_easy,trainer,pl_module,"easy")
+            # self.__generate_image_with_grad_cam(df_sorted_less_error,trainer,pl_module,"minor_error")
+            
+            self._plots_scatter_rank_plot(trainer) #reactivate
+            
+            
+            ##plotear imágenes dificiles que han sido predichas como fáciles
+            # self.df_pred["difference"]=self.df_pred["target"]-self.df_pred["results"]
+            # df_images_predict_easy_but_the_true_is_there_are_hard= self.df_pred.sort_values("difference",ascending=False).head(5)
+            # text=self.prefix+" Hard but predict easy"
+            # self.generate_images_and_upload(trainer,df_images_predict_easy_but_the_true_is_there_are_hard,text=text)
+            # ##plotear imágenes fáciles que han sido predichas como dificiles
 
-        ##plotear imágenes dificiles
-        df_sorted_hard=self.all_test_pred.sort_values("target",ascending=False).head(5)
-        text=self.prefix+" higher"
-        self.generate_images_and_upload(trainer,df_sorted_hard,text=text)
-        ##plotear imágenes fáciles
-        df_sorted_easy=self.all_test_pred.sort_values("target",ascending=True).head(5)
-        text=self.prefix+" lowest"
-        self.generate_images_and_upload(trainer,df_sorted_easy,text=text)
-        
-        self.all_test_pred["error"]=(self.all_test_pred["target"]-self.all_test_pred["results"]).abs()
-      
-        df_sorted_less_error=self.all_test_pred.sort_values("error",ascending=True).head(5)
-        # print(df_sorted_less_error)
-        # self.__generate_image_with_grad_cam(df_sorted_hard,trainer,pl_module,"hard")
-        # self.__generate_image_with_grad_cam(df_sorted_easy,trainer,pl_module,"easy")
-        # self.__generate_image_with_grad_cam(df_sorted_less_error,trainer,pl_module,"minor_error")
-        
-        # self._plots_scatter_rank_plot(trainer) #reactivate
-        
-        
-        ##plotear imágenes dificiles que han sido predichas como fáciles
-        self.all_test_pred["difference"]=self.all_test_pred["target"]-self.all_test_pred["results"]
-        df_images_predict_easy_but_the_true_is_there_are_hard= self.all_test_pred.sort_values("difference",ascending=False).head(5)
-        text=self.prefix+" Hard but predict easy"
-        self.generate_images_and_upload(trainer,df_images_predict_easy_but_the_true_is_there_are_hard,text=text)
-        ##plotear imágenes fáciles que han sido predichas como dificiles
-
-        df_images_predict_hard_but_the_true_is_there_are_easy= self.all_test_pred.sort_values("difference",ascending=True).head(5)
-        # print(df_images_predict_hard_but_the_true_is_there_are_easy)
-        text=self.prefix+" Easy but predict hard"
-        self.generate_images_and_upload(trainer,df_images_predict_hard_but_the_true_is_there_are_easy,text=text)
+            # df_images_predict_hard_but_the_true_is_there_are_easy= self.df_pred.sort_values("difference",ascending=True).head(5)
+            # # print(df_images_predict_hard_but_the_true_is_there_are_easy)
+            # text=self.prefix+" Easy but predict hard"
+            # self.generate_images_and_upload(trainer,df_images_predict_hard_but_the_true_is_there_are_easy,text=text)
+    def _save_dataframe_in_csv(self):
+        extra_text="regressor" if self.is_regressor else "classification"
+        if extra_text=="classification":
+            extra_text=extra_text+"_"+str(self.lr_used)
+        path_with_filename=os.path.join(self.folder_csv_result,f"{extra_text}_{self.split}_{self.dataset_name}_{self.model_name}.csv")
+        self.df_pred.to_csv(path_with_filename)
         
     def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
         if self.split=="train":
             self.dataloader=trainer.datamodule.train_dataloader()
+            self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
+            self._generate_results_if_target_model_is_regressor(trainer,pl_module)
         elif self.split=="val":
             self.dataloader=trainer.datamodule.val_dataloader()
-        elif self.split=="test":
-            self.dataloader=trainer.datamodule.test_dataloader()
-        
+            self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
+            self._generate_results_if_target_model_is_regressor(trainer,pl_module) 
 
-        self._generate_df_from_split(trainer,pl_module)
-   
         return super().on_train_end(trainer, pl_module)
+    
+    def on_test_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
+        print("hook test end")
+        if self.split=="test":
+            self.dataloader=trainer.datamodule.test_dataloader()
+            self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
+            self._generate_results_if_target_model_is_regressor(trainer,pl_module) 
+            self._save_dataframe_in_csv()
+            
+        return super().on_test_end(trainer, pl_module)
     
     def __generate_image_with_grad_cam(self,df,trainer:'pl.Trainer',pl_module,text):
         def revert_normalization(img,mean,std):
@@ -241,19 +283,19 @@ class PredictionPlotsAfterTrain(Callback):
                             ylabel="puesto en el ranking",
                             title="grafico de barras para correlacionar valores por ranking")
         
-        if "labels" in self.all_test_pred.columns:
-            self.all_test_pred.to_csv("/home/dcast/adversarial_project/openml/results_to_Carlos.csv")
-            self.all_test_pred=self.all_test_pred.sample(frac=0.01)
-            self._scatter_plot(x=self.all_test_pred.target,
-                           y=self.all_test_pred.results,
+        if "labels" in self.df_pred.columns:
+            self.df_pred.to_csv("/home/dcast/adversarial_project/openml/results_to_Carlos.csv")
+            # self.df_pred=self.df_pred.sample(frac=0.01)
+            self._scatter_plot(x=self.df_pred.Dffclt,
+                           y=self.df_pred.results,
                            xname="target",
                            yname="results",
                            trainer=trainer,
                            title="Grafico de dispersion",
-                           labels=self.all_test_pred.labels)
+                           labels=self.df_pred.labels)
         else:
-            self._scatter_plot(x=self.all_test_pred.target,
-                           y=self.all_test_pred.results,
+            self._scatter_plot(x=self.df_pred.Dffclt,
+                           y=self.df_pred.results,
                            xname="target",
                            yname="results",
                            trainer=trainer,
@@ -267,9 +309,14 @@ class PredictionPlotsAfterTrain(Callback):
             # plt.scatter(x=x,y=y,alpha=alpha)
             sns.scatterplot(x=x,y=y, alpha=alpha)
         else:
-            # plt.scatter(x=x,y=y,c=labels,alpha=alpha)
-            color_pallete=sns.color_palette("tab10",n_colors=10) #un error extraño
-            sns.scatterplot(x=x,y=y,hue=labels,alpha=alpha,palette=color_pallete)
+            # 
+            number_labels=self.df_pred.labels.nunique()
+            if number_labels>10:
+                # print(self.df_pred.head(5))
+                plt.scatter(x=x,y=y,c=labels,alpha=alpha)
+            else:
+                color_pallete=sns.color_palette("tab10",n_colors=number_labels) #un error extraño
+                sns.scatterplot(x=x,y=y,hue=labels,alpha=alpha,palette=color_pallete)
         plt.title(title)
         plt.xlabel(xname)
         plt.ylabel(yname)
@@ -283,8 +330,8 @@ class PredictionPlotsAfterTrain(Callback):
         
     def _bar_rank_plot(self,trainer,xlabel1,xlabel2,ylabel,title):
         fig = plt.figure(figsize=(14,7))
-        plt.bar(self.all_test_pred.index,height=self.all_test_pred.rank_target)
-        plt.bar(self.all_test_pred.index,height=self.all_test_pred.rank_results)
+        plt.bar(self.df_pred.index,height=self.df_pred.rank_Dffclt)
+        plt.bar(self.df_pred.index,height=self.df_pred.rank_results)
         plt.title(title)
         plt.xlabel("valores ordenados por Dffclt")
         plt.xlabel("valores ordenados por confidence")
@@ -298,20 +345,20 @@ class PredictionPlotsAfterTrain(Callback):
     def generate_images_and_upload(self,trainer,df:pd.DataFrame,text:str):
         pass
     
-        # images=[]
-        # for idx in df.id_image:
-        #     images.append(self.dataloader.dataset.dataset._create_image_from_dataframe(idx))
-        # if "labels" in df.columns:
-        #     trainer.logger.experiment.log({
-        #         f"{text}/examples": [
-        #             wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}, Num: {label}") 
-        #                 for x, pred, target,label in zip(images, df.results, df.target,df.labels)
-        #             ],
-        #         })
-        # else:
-        #     trainer.logger.experiment.log({
-        #         f"{text}/examples": [
-        #             wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}") 
-        #                 for x, pred, target in zip(images, df.results, df.target)
-        #             ],
-        #         })
+        images=[]
+        for idx in df.id_image:
+            images.append(self.dataloader.dataset.dataset._create_image_from_dataframe(idx))
+        if "labels" in df.columns:
+            trainer.logger.experiment.log({
+                f"{text}/examples": [
+                    wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}, Num: {label}") 
+                        for x, pred, target,label in zip(images, df.results, df.target,df.labels)
+                    ],
+                })
+        else:
+            trainer.logger.experiment.log({
+                f"{text}/examples": [
+                    wandb.Image(x, caption=f"Pred:{round(pred,4)}, Label:{round(target,4)}") 
+                        for x, pred, target in zip(images, df.results, df.target)
+                    ],
+                })

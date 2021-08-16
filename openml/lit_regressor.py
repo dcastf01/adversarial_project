@@ -1,5 +1,5 @@
 
-
+from openml.custom_models import AlexNet,GoogleNet
 from timm.models.factory import create_model
 from torch.nn.modules import linear
 from openml.lit_system import LitSystem
@@ -11,6 +11,7 @@ from torch.nn import functional as F
 from typing import Optional
 from openml.lit_system import LitSystem
 import timm
+from torchvision import models
 class LitRegressor(LitSystem):
     
     def __init__(self,
@@ -29,7 +30,7 @@ class LitRegressor(LitSystem):
                 num_fold:Optional[int]=None
                  ):
         
-        super().__init__( lr, optim=optim)
+        super().__init__( lr, optim=optim,is_regresor=True)
         
         self.generate_model(experiment_name,
                             in_chans,
@@ -114,29 +115,39 @@ class LitRegressor(LitSystem):
         
         if isinstance(experiment_name,str):
             model_enum=ModelsAvailable[experiment_name.lower()]
+        if model_enum.value in timm.list_models(pretrained=True)  :
+            extras=dict(in_chans=in_chans)
+            self.model=timm.create_model(
+                                        model_enum.value,
+                                        pretrained=True,
+                                        **extras
+                                        )
+        elif model_enum==ModelsAvailable.alexnet:
+            self.model=AlexNet(in_chans=in_chans)            
+        elif model_enum==ModelsAvailable.googlenet:
+            self.model=GoogleNet(in_chans=in_chans)
             
-        extras=dict(in_chans=in_chans)
-        self.model=timm.create_model(
-                                    model_enum.value,
-                                    pretrained=CONFIG.PRETRAINED_MODEL,
-                                    **extras
-                                    )
         # 
-        
+        dim_parameter_token=2
         if CONFIG.only_train_head:
             for param in self.model.parameters():
                 param.requires_grad=False
-        self.token_mean=nn.Parameter(torch.zeros(2))
+        self.token_mean=nn.Parameter(torch.zeros(dim_parameter_token))
         
         if model_enum==ModelsAvailable.resnet50:
-            linear_sizes = [self.model.fc.out_features+2]
+            linear_sizes = [self.model.fc.out_features+dim_parameter_token]
             # self.aditional_token=nn.Parameter(torch.zeros())
         elif model_enum==ModelsAvailable.densenet121:
-            linear_sizes=[self.model.classifier.out_features+3]
+            linear_sizes=[self.model.classifier.out_features+dim_parameter_token]
             # self.aditional_token=nn.Parameter(torch.zeros())
         elif model_enum==ModelsAvailable.vgg16:
-            linear_sizes=[self.model.head.fc.out_features+3]
- 
+            linear_sizes=[self.model.head.fc.out_features+dim_parameter_token]
+        
+        elif model_enum==ModelsAvailable.alexnet:
+            linear_sizes=[256*3*3+dim_parameter_token]
+        
+        elif model_enum==ModelsAvailable.googlenet:
+            linear_sizes=[1024+dim_parameter_token]
         
         
         if features_out_layer3:
