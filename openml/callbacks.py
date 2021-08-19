@@ -73,7 +73,14 @@ class gradCAMRegressorOneChannel(pytorch_grad_cam.GradCAM):
     
 class PredictionPlotsAfterTrain(Callback):
     
-    def __init__(self,dataset_name:str,model_name:str,split:str=None,is_regressor:bool=True,lr_used:int=0.001) -> None:
+    def __init__(self,dataset_name:str,
+                 model_name:str,
+                 split:str=None,
+                 is_regressor:bool=True,
+                 lr_used:int=0.001,
+                 save_result:bool=False,
+                 
+                 ) -> None:
         super(PredictionPlotsAfterTrain,self).__init__()
         self.df_pred=pd.DataFrame()
         self.split=split
@@ -84,6 +91,7 @@ class PredictionPlotsAfterTrain(Callback):
         self.model_name=model_name
         self.is_regressor=is_regressor
         self.lr_used=lr_used
+        self.save_result=save_result
         
     def _generate_df_from_split_depend_on_target_model(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
         for batch in self.dataloader:
@@ -184,22 +192,28 @@ class PredictionPlotsAfterTrain(Callback):
             # # print(df_images_predict_hard_but_the_true_is_there_are_easy)
             # text=self.prefix+" Easy but predict hard"
             # self.generate_images_and_upload(trainer,df_images_predict_hard_but_the_true_is_there_are_easy,text=text)
-    def _save_dataframe_in_csv(self):
-        extra_text="regressor" if self.is_regressor else "classification"
-        if extra_text=="classification":
-            extra_text=extra_text+"_"+str(self.lr_used)
-        path_with_filename=os.path.join(self.folder_csv_result,f"{extra_text}_{self.split}_{self.dataset_name}_{self.model_name}.csv")
-        self.df_pred.to_csv(path_with_filename)
+    
+    def _save_dataframe_in_csv(self,pl_module):
+        
+        if self.save_result:
+            additional_text=str(pl_module.num_repeat)+"_" +str(pl_module.num_fold)
+            extra_text="regressor" if self.is_regressor else "classification"
+            extra_text=extra_text+"_"+additional_text+"_"+str(self.lr_used)
+            
+            path_with_filename=os.path.join(self.folder_csv_result,f"{extra_text}_{self.split}_{self.dataset_name}_{self.model_name}.csv")
+            self.df_pred.to_csv(path_with_filename)
         
     def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
         if self.split=="train":
             self.dataloader=trainer.datamodule.train_dataloader()
             self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
             self._generate_results_if_target_model_is_regressor(trainer,pl_module)
+            self._save_dataframe_in_csv(pl_module)
         elif self.split=="val":
             self.dataloader=trainer.datamodule.val_dataloader()
             self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
             self._generate_results_if_target_model_is_regressor(trainer,pl_module) 
+            self._save_dataframe_in_csv(pl_module)
 
         return super().on_train_end(trainer, pl_module)
     
@@ -209,7 +223,7 @@ class PredictionPlotsAfterTrain(Callback):
             self.dataloader=trainer.datamodule.test_dataloader()
             self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
             self._generate_results_if_target_model_is_regressor(trainer,pl_module) 
-            self._save_dataframe_in_csv()
+            self._save_dataframe_in_csv(pl_module   )
             
         return super().on_test_end(trainer, pl_module)
     
