@@ -1,3 +1,4 @@
+import datetime
 import math
 import os
 
@@ -18,7 +19,294 @@ from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, random_split
 
 import wandb
+from openml.lit_classifier import LitClassifier
+from openml.loader_adversarial import Cifar10Loader,MnistLoader
+from openml.config import Dataset,CONFIG
+from openml.datamodule import OpenMLDataModule
 
+
+class ExperimentShiftDataset(Callback):
+    def __init__(self,dm,config:CONFIG) -> None:
+        super().__init__()
+        
+        self.config=config
+        self.size_experiment=500
+        self.dataset_original=dm#ver como poner
+        self.create_original_dataset()
+        self.create_new_dataset()
+        
+        self.save_result=True
+        self.path_save_result="/home/dcast/adversarial_project/openml/data/results_experiment_shift"
+    def create_original_dataset(self):
+        
+        self.original_data_val=self.dataset_original.data_val
+        examples_to_discard=len(self.original_data_val)-self.size_experiment
+        self.original_data_val,subdataset_original_val_to_discard=\
+            random_split( self.original_data_val,
+                         ( self.size_experiment,examples_to_discard)
+                )
+        self.original_data_val=DataLoader(
+            dataset=self.original_data_val,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.NUM_WORKERS,
+            pin_memory=True,
+            shuffle=False,
+        )
+    def create_new_dataset(self,):
+        self.new_dataset=Dataset.fashionmnist_ref
+        self.new_dm=OpenMLDataModule( data_dir=os.path.join(self.config.path_data,self.new_dataset.value),
+                                            batch_size=self.config.batch_size,
+                                            dataset=self.new_dataset,
+                                            num_workers=CONFIG.NUM_WORKERS,
+                                            pin_memory=True)
+        self.new_dm.setup()
+        self.new_data_val=self.new_dm.data_val
+        # self.new_data_val=self.dataset_original
+        examples_to_discard=len(self.new_data_val)-self.size_experiment
+        self.new_data_val,subdataset_new_val_to_discard=\
+            random_split( self.new_data_val,
+                         ( self.size_experiment,examples_to_discard)
+                )
+        self.new_data_val=DataLoader(
+            dataset=self.new_data_val,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.NUM_WORKERS,
+            pin_memory=True,
+            shuffle=False,
+        )
+    
+    def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
+        #experimento con imágenes originales y resultados
+        #experimento con imágenes de otro conjunto y resultados
+        self.experiment(is_original_dataset=True,pl_module=pl_module)
+        self.experiment(is_original_dataset=False,pl_module=pl_module)
+        return super().on_train_end(trainer, pl_module)
+
+    def experiment(self,is_original_dataset:bool, pl_module: 'pl.LightningModule'):
+        if is_original_dataset:
+            #solo permitir 500 imágenes
+            self.predict(pl_module,self.original_data_val,is_regressor=True)
+            self._save_dataframe_in_csv("regressor_with_original")
+        else:
+            #solo permitir 500 imágenes
+            self.predict(pl_module,self.new_data_val,is_regressor=True)
+            self._save_dataframe_in_csv("regressor_with_shift_dataset")
+    def _save_dataframe_in_csv(self,additional_text):
+        
+        if self.save_result:
+            extra_text=datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+            extra_text=additional_text+"_"+extra_text
+            
+            path_with_filename=os.path.join(self.path_save_result,f"{extra_text}.csv")
+            self.df_pred.to_csv(path_with_filename) 
+    
+    def predict(self,pl_module,dataloader,is_regressor=False):
+        self.df_pred=pd.DataFrame()
+        for batch in dataloader:
+            if len(batch)==3:
+                image,target,idx=batch
+            elif len(batch)==4:
+                image,target,idx,labels=batch
+            with torch.no_grad():
+                results=pl_module(image.to(device=pl_module.device))
+            labels=labels.cpu().numpy()[:,0]
+            target=target.cpu().numpy()[:,0]
+            if is_regressor:
+                results=results.cpu().numpy()[:,0]
+                
+            else:
+                results=torch.argmax(results,dim=1).cpu().numpy()
+
+            if len(batch)==3:
+                valid_pred_df = pd.DataFrame({
+
+                    "Dffclt":target,
+                    "results":results,
+                    "id_image": idx,
+                })
+            elif len(batch)==4:
+               
+                valid_pred_df = pd.DataFrame({
+                    "Dffclt":target,
+                    "results":results,
+                    "labels":labels,#.cpu().numpy()[:,0],
+                    "id_image": idx,
+                })
+            if not is_regressor:
+                valid_pred_df["acierta"]=np.where( valid_pred_df['results'] == valid_pred_df['labels'] , '1', '0')
+            self.df_pred=pd.concat([self.df_pred,valid_pred_df])
+class Experiment4WithAdversarialExamples(Callback):
+    
+    def __init__(self,dm,config) -> None:
+        super().__init__()
+        self.train_val_dataset_initial=torch.utils.data.ConcatDataset([dm.data_train,dm.data_val])
+        self.config=config
+        dir_csv_file="/home/dcast/adversarial_project/openml/adversarial_images/mnist784_ref_data_adversarial.csv"
+        self.path_save_result="/home/dcast/adversarial_project/openml/data/results_experiment_4"
+        self.df_adversarial=pd.read_csv(dir_csv_file)
+        self.number_examples_originals=len(self.train_val_dataset_initial)
+        self.number_examples_adversarials=len(self.df_adversarial)
+        self.size_experiment=1000
+        all_range_index=list(range(0,self.train_val_dataset_initial.cumulative_sizes[-1]))
+        self.ids_adversarial_examples=self.df_adversarial.id.tolist()
+        self.ids_without_adversarial=[x for x in all_range_index if x not in self.ids_adversarial_examples]
+      
+        # self.subdataset_adversarial=Cifar10Loader(dir_csv_file,"32")
+        # self.in_chans=3
+        self.subdataset_adversarial=MnistLoader(dir_csv_file,32)
+        self.in_chans=1
+        self.dataset_without_adversarial=torch.utils.data.Subset(self.train_val_dataset_initial,self.ids_without_adversarial)
+        self.train_val_split= [round(split*(self.number_examples_originals-self.number_examples_adversarials)) 
+                               for split in [0.7,0.3]]
+        self.save_result=True
+        self.batch_size=1024
+        self.num_workers=0
+        self.pin_memory=True
+        
+    def create_dataset_to_train(self,trainer):
+        
+        self.data_train_without_adversarial, self.data_val_without_adversarial= random_split(
+            self.dataset_without_adversarial, self.train_val_split
+        )
+        trainer.datamodule.data_train=self.data_train_without_adversarial #solo coger el 70% del total
+        # trainer.datamodule.data_train=self.train_val_dataset_initial    
+        trainer.datamodule.data_val=self.data_val_without_adversarial
+    
+    def create_dataset_with_adversarial_to_experiment(self):
+        examples_necessary_without_adversarial=self.size_experiment-self.number_examples_adversarials
+        examples_to_discard=len(self.data_val_without_adversarial)-examples_necessary_without_adversarial
+        self.subdataset_val_without_adversarial_to_use_in_experiment,subdataset_val_without_adversarial_to_discard=\
+            random_split( self.data_val_without_adversarial,
+                         ( examples_necessary_without_adversarial,examples_to_discard)
+                )
+        self.dataset_adversarial_to_experiment=\
+            torch.utils.data.ConcatDataset([self.subdataset_adversarial,
+                                    self.subdataset_val_without_adversarial_to_use_in_experiment])
+            
+        self.dataset_adversarial_to_experiment=DataLoader(
+            dataset=self.dataset_adversarial_to_experiment,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            shuffle=False,
+        )
+    
+    def create_dataset_without_adversarial_to_experiment(self):
+        examples_to_discard=len(self.data_val_without_adversarial)-self.size_experiment
+        self.dataset_without_adversarial_to_experiment,subdataset_val_without_adversarial_to_discard=\
+            random_split( self.data_val_without_adversarial,
+                         ( self.size_experiment,examples_to_discard)
+                )
+        self.dataset_without_adversarial_to_experiment=DataLoader(
+            dataset=self.dataset_without_adversarial_to_experiment,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            shuffle=False,
+        )
+    
+    def on_fit_start(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
+        self.create_dataset_to_train(trainer)
+        self.create_dataset_with_adversarial_to_experiment()
+        self.create_dataset_without_adversarial_to_experiment()
+        return super().on_train_start(trainer, pl_module)
+     
+    def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
+        self.create_and_train_classification_model(trainer.datamodule)
+        self.experiment_with_adversarial(pl_module)
+        self.experiment_without_adversarial(pl_module)        
+        return super().on_train_end(trainer, pl_module)
+    
+    def create_and_train_classification_model(self,dm):
+       
+        self.classifier=LitClassifier(
+            model_name=self.config.experiment_name,
+            lr=self.config.lr,
+            optim=self.config.optim_name,
+            in_chans=self.in_chans,
+            num_fold=0,
+            num_repeat=0
+                             )
+        trainer=pl.Trainer(
+                    # logger=wandb_logger,
+                       gpus=[0],
+                       max_epochs=self.config.NUM_EPOCHS,
+                       precision=self.config.precision_compute,
+                       log_gpu_memory=True,
+                       progress_bar_refresh_rate=5,
+                       
+                       )
+        trainer.fit(self.classifier,
+                    datamodule=dm,
+                    # train_dataloader= self.data_train_without_adversarial,
+                    # val_dataloaders=self.data_val_without_adversarial
+                    )
+                            
+    def experiment_with_adversarial(self,pl_module):
+        self.predict(pl_module=pl_module,dataloader=self.dataset_adversarial_to_experiment,
+                          is_regressor=True)
+        self._save_dataframe_in_csv("regressor_with_adversarial")
+        self.predict(pl_module=self.classifier,dataloader=self.dataset_adversarial_to_experiment,
+                          is_regressor=False)
+        self._save_dataframe_in_csv("classifier_with_adversarial")
+        #predecir dificultad aportando dataset
+        #predecir clasificación aportando dataset
+        
+    def experiment_without_adversarial(self,pl_module):
+        self.predict(pl_module=pl_module,dataloader=self.dataset_without_adversarial_to_experiment,
+                          is_regressor=True)
+        self._save_dataframe_in_csv("regressor_without_adversarial")
+        self.predict(pl_module=self.classifier,dataloader=self.dataset_without_adversarial_to_experiment,
+                          is_regressor=False)
+        self._save_dataframe_in_csv("classifier_without_adversarial")
+        #predecir dificultad aportando dataset
+        #predecir clasificación aportando dataset
+    
+    def _save_dataframe_in_csv(self,additional_text):
+        
+        if self.save_result:
+            extra_text=datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+            extra_text=additional_text+"_"+extra_text
+            
+            path_with_filename=os.path.join(self.path_save_result,f"{extra_text}.csv")
+            self.df_pred.to_csv(path_with_filename)    
+            
+    def predict(self,pl_module,dataloader,is_regressor=False):
+        self.df_pred=pd.DataFrame()
+        for batch in dataloader:
+            if len(batch)==3:
+                image,target,idx=batch
+            elif len(batch)==4:
+                image,target,idx,labels=batch
+            with torch.no_grad():
+                results=pl_module(image.to(device=pl_module.device))
+            labels=labels.cpu().numpy()[:,0]
+            target=target.cpu().numpy()[:,0]
+            if is_regressor:
+                results=results.cpu().numpy()[:,0]
+                
+            else:
+                results=torch.argmax(results,dim=1).cpu().numpy()
+                
+            if len(batch)==3:
+                valid_pred_df = pd.DataFrame({
+
+                    "Dffclt":target,
+                    "results":results,
+                    "id_image": idx,
+                })
+            elif len(batch)==4:
+               
+                valid_pred_df = pd.DataFrame({
+                    "Dffclt":target,
+                    "results":results,
+                    "labels":labels,#.cpu().numpy()[:,0],
+                    "id_image": idx,
+                })
+            if not is_regressor:
+                valid_pred_df["acierta"]=np.where( valid_pred_df['results'] == valid_pred_df['labels'] , '1', '0')
+                # (valid_pred_df["results"]==valid_pred_df["labels"])
+            self.df_pred=pd.concat([self.df_pred,valid_pred_df])
 
 class SplitDatasetWithKFoldStrategy(Callback):
     
@@ -57,7 +345,7 @@ class SplitDatasetWithKFoldStrategy(Callback):
         else:
             self.create_fold_dataset(pl_module.num_fold,trainer,pl_module)
         return super().on_train_start(trainer, pl_module)
-
+    
 class gradCAMRegressorOneChannel(pytorch_grad_cam.GradCAM):
     def __init__(self, model,
                  target_layer, 
@@ -94,6 +382,7 @@ class PredictionPlotsAfterTrain(Callback):
         self.save_result=save_result
         
     def _generate_df_from_split_depend_on_target_model(self,trainer: 'pl.Trainer',pl_module:'pl.LightningModule'):
+        self.df_pred=pd.DataFrame()
         for batch in self.dataloader:
             if len(batch)==3:
                 image,target,idx=batch
@@ -223,7 +512,7 @@ class PredictionPlotsAfterTrain(Callback):
             self.dataloader=trainer.datamodule.test_dataloader()
             self._generate_df_from_split_depend_on_target_model(trainer,pl_module) 
             self._generate_results_if_target_model_is_regressor(trainer,pl_module) 
-            self._save_dataframe_in_csv(pl_module   )
+            self._save_dataframe_in_csv(pl_module)
             
         return super().on_test_end(trainer, pl_module)
     
