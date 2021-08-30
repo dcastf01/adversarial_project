@@ -26,7 +26,7 @@ class OpenMLDataModule(LightningDataModule):
                  num_workers:int,
                  pin_memory:bool,
                  dataset:Dataset,
-                 train_val_test_split_percentage:Tuple[float,float,float]=(0.5,0.2,0.3),
+                 train_val_test_split_percentage:Tuple[float,float,float]=(0.7,0.3,0.0),
                  input_size=None
                  
                  

@@ -26,8 +26,8 @@ import uuid
 
 
 def apply_train_test():
-    def get_new_system_and_do_training_and_test(config,data_module,wandb_logger,callbacks,num_fold=None,run_test:bool=False):
-        model=get_system(config,num_fold)
+    def get_new_system_and_do_training_and_test(config,data_module,wandb_logger,callbacks,num_repeat=None,num_fold=None,run_test:bool=False):
+        model=get_system(config,num_fold,num_repeat=num_repeat)
         
         # test_dataloader=data_module.test_dataloader()
         #create trainer
@@ -73,12 +73,13 @@ def apply_train_test():
     if num_fold is None or num_fold==0:
         wandb.run.name=config.model_name[:5]+" "+\
                     datetime.datetime.utcnow().strftime("%Y-%m-%d %X")
-        get_new_system_and_do_training_and_test(config,data_module,wandb_logger,callbacks,num_fold=num_fold)
+        get_new_system_and_do_training_and_test(config,data_module,wandb_logger,callbacks,num_fold=num_fold,run_test=True)
         
     else:
         results=[]
         for num_repeat in range(config.repetitions):
             for fold in range(num_fold):
+                print(f"Repeticion {num_repeat}, fold {fold}")
                 if not num_repeat==0 or not fold==0:
                     config=CONFIG()
                     config_dict=create_config_dict(config)
@@ -101,35 +102,36 @@ def apply_train_test():
                 
                 result=get_new_system_and_do_training_and_test(config,data_module,
                                                                wandb_logger,callbacks,
+                                                               num_repeat=num_repeat,
                                                                num_fold=fold,
                                                                run_test=False)
                 if results:
                     results.append(*result)
                 wandb.finish()
-        config=CONFIG()
-        config_dict=create_config_dict(config)
+        # config=CONFIG()
+        # config_dict=create_config_dict(config)
        
-        wandb.init(
-            project='IRT-project-NLP',
-                    entity='dcastf01',
-                    config=config_dict)
+        # wandb.init(
+        #     project='IRT-project-NLP',
+        #             entity='dcastf01',
+        #             config=config_dict)
         
-        wandb_logger = WandbLogger( 
-                        # offline=True,
-                        log_model=False
-                        )
+        # wandb_logger = WandbLogger( 
+        #                 # offline=True,
+        #                 log_model=False
+        #                 )
         
-        config =wandb.config
-        config=wandb.config
-        wandb.run.name="final"+config.model_name[:5]+" "+\
-            datetime.datetime.utcnow().strftime("%Y-%m-%d %X")
-        # wandb.run.id_group=init_id
-        callbacks=get_callbacks(config,data_module,only_train_and_test=True)
-        result=get_new_system_and_do_training_and_test(config,data_module,
-                                                       wandb_logger,
-                                                       callbacks,num_fold=num_fold,
-                                                       run_test=True
-                                                       )
+        # config =wandb.config
+        # config=wandb.config
+        # wandb.run.name="final"+config.model_name[:5]+" "+\
+        #     datetime.datetime.utcnow().strftime("%Y-%m-%d %X")
+        # # wandb.run.id_group=init_id
+        # callbacks=get_callbacks(config,data_module,only_train_and_test=True)
+        # result=get_new_system_and_do_training_and_test(config,data_module,
+        #                                                wandb_logger,
+        #                                                callbacks,num_fold=num_fold,
+        #                                                run_test=True
+        #                                                )
         # results.append(*result)
         
         # generate_csv_results(results,config.dataset_name)

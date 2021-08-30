@@ -1,17 +1,19 @@
 
-from openml.custom_models import AlexNet,GoogleNet
-from timm.models.factory import create_model
-from torch.nn.modules import linear
-from openml.lit_system import LitSystem
+from typing import Optional
 
-from openml.config import CONFIG,ModelsAvailable
+import timm
 import torch
 import torch.nn as nn
+from timm.models.factory import create_model
 from torch.nn import functional as F
-from typing import Optional
-from openml.lit_system import LitSystem
-import timm
+from torch.nn.modules import linear
 from torchvision import models
+
+from openml.config import CONFIG, ModelsAvailable
+from openml.custom_models import AlexNet, GoogleNet
+from openml.lit_system import LitSystem
+
+
 class LitRegressor(LitSystem):
     
     def __init__(self,
@@ -27,7 +29,8 @@ class LitRegressor(LitSystem):
                 dropout1:Optional[float]=None,
                 dropout2:Optional[float]=None,
                 is_mlp_preconfig:Optional[bool]=None,
-                num_fold:Optional[int]=None
+                num_fold:Optional[int]=None,
+                num_repeat:Optional[int]=None
                  ):
         
         super().__init__( lr, optim=optim,is_regresor=True)
@@ -45,7 +48,7 @@ class LitRegressor(LitSystem):
                                        )
         self.criterion=F.smooth_l1_loss #cambio de loss function
         self.num_fold=num_fold
-        
+        self.num_repeat=num_repeat
     
     def forward(self,x):
         return self.step(x)

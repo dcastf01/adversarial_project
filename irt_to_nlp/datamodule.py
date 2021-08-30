@@ -27,7 +27,7 @@ class NLPDataModule(LightningDataModule):
                  pin_memory:bool,
                  dataset:Dataset,
                  model_name:str,
-                 train_val_test_split_percentage:Tuple[float,float,float]=(0.5,0.2,0.3),
+                 train_val_test_split_percentage:Tuple[float,float,float]=(0.7,0.3,0.0),
                  
                  
                  

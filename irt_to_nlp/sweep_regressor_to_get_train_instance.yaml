@@ -1,0 +1,56 @@
+program: /home/dcast/adversarial_project/irt_to_nlp/train.py
+method: grid
+metric:
+  goal: maximize
+  name: _validSpearmanCorrcoef
+name: NLP regresores 
+parameters:
+ 
+  notes:
+    value: regresores
+  
+  gpu1:
+    value: False
+  gpu0:
+    value: True
+
+  target_name:
+    value: regresor_model
+  lr:
+    value:
+      - 5e-5
+  model_name:
+    values:
+      - t5small
+      - bert_base_multilingual_uncased_sentiment
+
+    distribution: categorical
+
+  dataset_name:
+    values: 
+     - imbd
+     - sst
+
+    
+  NUM_WORKERS:
+    value: 0
+   
+  optim_name:
+    value: adam
+    
+  batch_size:
+    value: 20
+    
+  NUM_EPOCHS:
+    value: 50
+    
+  path_data:
+    value: /home/dcast/adversarial_project/irt_to_nlp/data
+
+  num_fold:
+    value: 5
+
+  repetitions:
+    value: 2
+
+  

@@ -4,7 +4,7 @@
 from torch.utils.data import Dataset
 import pandas as pd
 import torch
-from transformers import GPT2Tokenizer,GPTNeoConfig,AutoTokenizer,BertTokenizer
+from transformers import GPT2Tokenizer,GPTNeoConfig,AutoTokenizer,BertTokenizer,T5Tokenizer
 from irt_to_nlp.config import ModelAvailable
 class Loader(Dataset):
     
@@ -48,6 +48,10 @@ class Loader(Dataset):
         elif self.model==ModelAvailable.bert_base_multilingual_uncased_sentiment:
             
             self.tokenizer=AutoTokenizer.from_pretrained("nlptown/bert-base-multilingual-uncased-sentiment")
+        elif self.model==ModelAvailable.t5small:
+            self.tokenizer=T5Tokenizer.from_pretrained("t5-small")
+        elif self.model==ModelAvailable.t5base:
+            self.tokenizer=T5Tokenizer.from_pretrained("t5-base")
             
             
     def __getitem__(self, index):
@@ -65,6 +69,7 @@ class Loader(Dataset):
                 pad_to_max_length=True,
                 return_attention_mask=True,
                 return_tensors='pt',
+                
                 )
         input_ids=encoding.input_ids.flatten()
         attention_mask=encoding['attention_mask'].flatten()

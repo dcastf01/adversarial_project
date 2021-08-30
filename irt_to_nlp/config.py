@@ -14,6 +14,8 @@ class ModelAvailable(Enum):
     distilgpt2=4
     bert_base_uncased=5
     bert_base_multilingual_uncased_sentiment=6
+    t5small=7
+    t5base=8 #too big
     
     # bert-base-multilingual-uncased-sentiment modelo a añadir 
     #check this other page https://towardsdatascience.com/sentiment-analysis-in-10-minutes-with-bert-and-hugging-face-294e8a04b671
@@ -34,16 +36,16 @@ class CONFIG(object):
     model_name:str=model.name
     
     num_fold:int=5 #if 0 is not kfold train
-    repetitions:int=2
+    repetitions:int=1
     
     #torch config3
-    batch_size:int = 10
+    batch_size:int = 20
     dataset=Dataset.sst
     dataset_name:str=dataset.name
     precision_compute:int=32
     optim=Optim.adam
     optim_name:str=optim.name
-    lr:float = 5e-5
+    lr:float = 5e-4 #original 5e-5
     AUTO_LR :bool= False
     # LAMBDA_IDENTITY = 0.0
     NUM_WORKERS:int = 0
@@ -57,9 +59,9 @@ class CONFIG(object):
     ##data
     path_data:str=r"/home/dcast/adversarial_project/irt_to_nlp/data"
     
-    gpu0:bool=True  
-    gpu1:bool=False
-    notes:str="prueba solo lineal phase loss"
-    version:int=2
+    gpu0:bool=False  
+    gpu1:bool=True
+    notes:str="una repetición solo"
+    version:int=3
 def create_config_dict(instance:CONFIG):
     return asdict(instance)

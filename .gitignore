@@ -136,3 +136,4 @@ openml/data
 *.xlsx
 *.DS_Store
 *.pkl
+lightning_logs/

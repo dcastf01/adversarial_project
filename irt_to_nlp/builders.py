@@ -46,13 +46,18 @@ def get_callbacks(config,dm,only_train_and_test=False):
                         )
     learning_rate_monitor=LearningRateMonitor(logging_interval="epoch")
     
-    prediction_plot_test=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="test")
-    prediction_plot_val=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="val")
+    # save_result=True if config.num_fold==0 or only_train_and_test  else False
+    save_result=True
+    prediction_plot_test=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="test",
+                                                   lr_used=config.lr,save_result=save_result)
+    prediction_plot_val=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="val",
+                                                  lr_used=config.lr,save_result=save_result)
     
-    prediction_plot_train=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="train")
+    prediction_plot_train=PredictionPlotsAfterTrain(config.dataset_name,config.model_name,split="train",
+                                                   lr_used=config.lr,save_result=save_result)
         
     callbacks=[
-        early_stopping,
+        # early_stopping,
         prediction_plot_val,
         prediction_plot_test,
         prediction_plot_train,
@@ -69,12 +74,13 @@ def get_callbacks(config,dm,only_train_and_test=False):
         callbacks.append(split_dataset)
     return callbacks
 
-def get_system(config,num_fold=0,):
+def get_system(config,num_fold=0,num_repeat=0):
 
     return    LitNLPRegressor(lr=config.lr,
                     optim=config.optim_name,
                     model_name=config.model_name,
                     num_fold=num_fold,
+                    num_repeat=num_repeat,
                     )
         
 

@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
 from openml.lit_classifier import LitClassifier
-from openml.callbacks import PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy
+from openml.callbacks import PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy,Experiment4WithAdversarialExamples,ExperimentShiftDataset
 from openml.datamodule import OpenMLDataModule
 from openml.config import CONFIG, Dataset,TargetModel
 from openml.lit_regressor import LitRegressor
@@ -49,15 +49,30 @@ def get_callbacks(config:CONFIG,dm,only_train_and_test=False):
     
     
     is_regressor=True if TargetModel[config.target_name]==TargetModel.regresor_model else False
-  
+    # save_result=True if config.num_fold==0 or only_train_and_test  else False
+    save_result=True
     prediction_plot_test=PredictionPlotsAfterTrain(config.dataset_name,config.experiment_name,split="test",
-                                                   is_regressor=is_regressor,lr_used=config.lr)
+                                                   is_regressor=is_regressor,lr_used=config.lr,save_result=save_result)
     prediction_plot_val=PredictionPlotsAfterTrain(config.dataset_name,config.experiment_name,split="val",
-                                                  is_regressor=is_regressor,lr_used=config.lr)
+                                                  is_regressor=is_regressor,lr_used=config.lr,save_result=save_result,)
     
     prediction_plot_train=PredictionPlotsAfterTrain(config.dataset_name,config.experiment_name,split="train",
-                                                    is_regressor=is_regressor,lr_used=config.lr)
-    if config.num_fold>=1:
+    
+                                                     is_regressor=is_regressor,lr_used=config.lr,save_result=save_result)
+    
+    if config.experiment_adversarial:
+        split_dataset= Experiment4WithAdversarialExamples  (dm=dm,config=config) 
+        callbacks=[
+            # grad_cam,
+            prediction_plot_test,
+            prediction_plot_val,
+            prediction_plot_train,
+            learning_rate_monitor,
+            # early_stopping,
+            split_dataset,
+                ] 
+    
+    elif config.num_fold>=1:
         
         split_dataset=SplitDatasetWithKFoldStrategy(folds=config.num_fold,repetitions=config.repetitions,
                                                     dm=dm,
@@ -71,8 +86,8 @@ def get_callbacks(config:CONFIG,dm,only_train_and_test=False):
             learning_rate_monitor,
             # early_stopping,
             split_dataset,
-            
                 ]
+    
     else:
         callbacks=[
             # grad_cam,
@@ -83,10 +98,13 @@ def get_callbacks(config:CONFIG,dm,only_train_and_test=False):
             # early_stopping,
             
                 ]
-        
+    
+    if config.experiment_shift_dataset:
+        shift_dataset=ExperimentShiftDataset(dm=dm,config=config)
+        callbacks.append(shift_dataset)    
     return callbacks
 
-def get_system(config,dm,num_fold=0):
+def get_system(config,dm,num_fold=0,num_repeat=0):
     dataset_name=config.dataset_name
     dataset_enum=Dataset[dataset_name]
     if config.target_name==TargetModel.classifier_model.name:
@@ -96,7 +114,8 @@ def get_system(config,dm,num_fold=0):
             lr=config.lr,
             optim=config.optim_name,
             in_chans=dm.in_chans,
-            num_fold=num_fold
+            num_fold=num_fold,
+            num_repeat=num_repeat
                              )
     else:
         system=LitRegressor(
@@ -113,7 +132,7 @@ def get_system(config,dm,num_fold=0):
             dropout2=config.dropout2,
             is_mlp_preconfig=config.is_mlp_preconfig,
             num_fold=num_fold,
-            
+            num_repeat=num_repeat
                     )
         
     return system

@@ -2,7 +2,7 @@
 import torch.nn as nn
 from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
                           AutoModelForSequenceClassification,
-                          GPTNeoForCausalLM,BertModel)
+                          GPTNeoForCausalLM,BertModel,T5ForConditionalGeneration)
 
 
 class CustomGPTNeo(nn.Module):
@@ -33,15 +33,16 @@ class CustomBertBase(nn.Module):
     def __init__(self,model_pretrained:str):
         super(CustomBertBase, self).__init__()
         
-        hidden_dim1=64
+        # hidden_dim1=64
         # num_tokens=1790
-        hidden_dim2=64
+        # hidden_dim2=64
         out_dim=1
 
         model_pretrained=model_pretrained
         self.model = BertModel.from_pretrained(model_pretrained)
         in_dim=self.model.config.hidden_size
         # self.drop = nn.Dropout(p=0.1)
+        self.batchnormalization=nn.BatchNorm1d(in_dim)
         self.regressor = nn.Linear(in_dim, out_dim)
         # self.regressor=MLP(in_dim,hidden_dim1,hidden_dim2,out_dim)
 
@@ -57,7 +58,35 @@ class CustomBertBase(nn.Module):
         # x=self.regressor(x)
         
         return self.regressor(x)
-    
+class CustomT5(nn.Module):
+    def __init__(self,model_pretrained:str):
+        super(CustomT5,self).__init__()
+        # in_dim=256
+        # hidden_dim1=16
+        # num_tokens=1790
+        # hidden_dim2=8
+        out_dim=1
+
+        
+        self.model = T5ForConditionalGeneration.from_pretrained(model_pretrained)
+        in_dim=self.model.config.hidden_size
+        self.batchnormalization=nn.BatchNorm1d(in_dim)
+        self.regressor = nn.Linear(in_dim, out_dim)
+
+        
+    def forward(self,ids,attention_mask):
+        x=self.model(input_ids=ids,
+                    attention_mask=attention_mask,
+                    decoder_input_ids=ids)
+        y=x.encoder_last_hidden_state
+        # z=y
+        x=y.sum(1)
+        x=self.batchnormalization(x)
+        # x=x.logits
+        x=self.regressor(x)
+        
+        return x
+   
 class CustomDistiledBertBaseCased(nn.Module):
     
     def __init__(self):

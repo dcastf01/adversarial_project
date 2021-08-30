@@ -18,6 +18,7 @@ class ModelsAvailable(Enum):
     tf_efficientnet_b7="tf_efficientnet_b7"
     
 class Dataset (Enum):
+    cifar_adversarial="cifar_crop_data_adversarial"
     cifar_crop="cifar-10.Class_Dffclt_Dscrmn_MeanACC.csv"
     cifar_replace="cifar-10-diff6replace.csv" # out of date
     cifar_ref="cifar-10.Diff6.RefClass.csv"# out of date
@@ -26,6 +27,7 @@ class Dataset (Enum):
     mnist784_ref="mnist_784.Class_Dffclt_Dscrmn_MeanACC.csv"
     umistfaces_ref="UMIST_Faces.Class_Dffclt_Dscrmn_MeanACC.csv"
     mnist784_classifier="mnist_784V2.Clasification.csv"# out of date
+    
     
 class TargetModel(Enum):
     regresor_model=1
@@ -39,26 +41,29 @@ class Optim(Enum):
 @dataclass
 class CONFIG(object):
     
-    experiment=ModelsAvailable.densenet121
+    experiment=ModelsAvailable.resnet50
     experiment_name:str=experiment.name
     experiment_net:str=experiment.value
     PRETRAINED_MODEL:bool=True
     only_train_head:bool=False #solo se entrena el head
-
+    
     target_model=TargetModel.regresor_model
     target_name:str=target_model.name
     #torch config
     batch_size:int = 1024
-    dataset=Dataset.cifar_crop
+    dataset=Dataset.mnist784_ref
     dataset_name:str=dataset.name
     precision_compute:int=32
     optim=Optim.adam
     optim_name:str=optim.name
-    lr:float = 0.001
+    lr:float = 0.01 #cambiar segun modelo y benchmark
     AUTO_LR :bool= False
-    
-    num_fold:int=5 #if 0 is not kfold train 
-    repetitions:int=2
+
+    experiment_adversarial:bool=True #if True , then not exist Folds
+    experiment_shift_dataset:bool=False
+
+    num_fold:int=0 #if 0 is not kfold train 
+    repetitions:int=1
     
     # LAMBDA_IDENTITY = 0.0
     NUM_WORKERS:int = 0

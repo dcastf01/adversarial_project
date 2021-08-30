@@ -8,12 +8,14 @@ from openml.lit_system import LitSystem
 from irt_to_nlp.config import ModelAvailable
 from irt_to_nlp.nlp_model_with_regressor import (CustomBertBase,
                                                  CustomDistiledBertBaseCased,
-                                                 CustomGPTNeo, CustomDistiledGPT2)
+                                                 CustomGPTNeo, CustomDistiledGPT2,CustomT5)
+from typing import Optional
 
 
 class LitNLPRegressor(LitSystem):
     
-    def __init__(self, lr, optim: str,model_name:str,num_fold:int):
+    def __init__(self, lr, optim: str,model_name:str,num_fold:Optional[int]=None,
+                num_repeat:Optional[int]=None):
         super().__init__(lr, optim=optim,)
    
         self.get_model(model_name)
@@ -21,6 +23,7 @@ class LitNLPRegressor(LitSystem):
         # self.criterion=F.l1_loss
         self.criterion=F.mse_loss
         self.num_fold=num_fold
+        self.num_repeat=num_repeat
         # F.mse_loss
 
     def forward(self, x,attention_mask=None):
@@ -51,6 +54,17 @@ class LitNLPRegressor(LitSystem):
         metric_value=self.valid_metrics_base(preds,targets)
         data_dict={"val_loss":loss,**metric_value}
         self.insert_each_metric_value_into_dict(data_dict,prefix="")
+        
+    def test_step(self, batch,batch_idx) :
+        x,attention_mask,targets,index=batch
+        preds=self.forward(x,attention_mask)
+        loss=self.criterion(preds,targets)
+        preds=torch.squeeze(preds,1)
+        targets=torch.squeeze(targets,1)
+        metric_value=self.test_metrics_base(preds,targets)
+        data_dict={"test_loss":loss,**metric_value}
+        self.insert_each_metric_value_into_dict(data_dict,prefix="")
+    
     
     def get_model(self, model_name:str):
         model_enum=ModelAvailable[model_name]
@@ -75,6 +89,11 @@ class LitNLPRegressor(LitSystem):
             self.model:CustomBertBase=CustomBertBase("bert-base-uncased")
         elif model_enum==ModelAvailable.bert_base_multilingual_uncased_sentiment:
             self.model:CustomBertBase=CustomBertBase("nlptown/bert-base-multilingual-uncased-sentiment")
+        elif model_enum==ModelAvailable.t5small:
+            self.model:CustomT5=CustomT5("t5-small")
+        elif model_enum==ModelAvailable.t5base:
+            self.model:CustomT5=CustomT5("t5-base")
+            
             # ct=0
             # for child in self.model.model.children():
             #     ct += 1

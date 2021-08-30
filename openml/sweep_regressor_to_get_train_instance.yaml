@@ -1,0 +1,59 @@
+program: /home/dcast/adversarial_project/openml/train.py
+method: grid
+metric:
+  goal: maximize
+  name: _validSpearmanCorrcoef
+name: regresores para obtener el train
+parameters:
+ 
+  notes:
+    value: clasificadores
+  
+  gpu1:
+    value: False
+  gpu0:
+    value: True
+
+  target_name:
+    value: regresor_model
+  lr:
+    values:
+      - 0.001
+      - 0.01
+  experiment_name:
+    values:
+      - densenet121
+      - resnet50
+      - vgg16
+
+    distribution: categorical
+
+  dataset_name:
+    values: 
+     - cifar_crop
+     - fashionmnist_ref
+     - mnist784_ref
+     - umistfaces_ref
+    
+  NUM_WORKERS:
+    value: 0
+   
+  optim_name:
+    value: adam
+    
+  batch_size:
+    value: 1024
+    
+  NUM_EPOCHS:
+    value: 50
+    
+  path_data:
+    value: /home/dcast/adversarial_project/openml/data
+
+  num_fold:
+    value: 0
+
+  repetitions:
+    value: 0
+
+  

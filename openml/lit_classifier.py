@@ -16,7 +16,8 @@ class LitClassifier(LitSystem):
                  optim: str,
                  model_name:str,
                  in_chans:int,
-                 num_fold:int
+                 num_fold:int,
+                 num_repeat:int
                  ):
         
         
@@ -26,6 +27,7 @@ class LitClassifier(LitSystem):
         # self.model=timm.create_model(model_name,pretrained=True,num_classes=10,**extras)
         self.criterion=torch.nn.CrossEntropyLoss()
         self.num_fold=num_fold
+        self.num_repeat=num_repeat
         
     def forward(self,x):
         return self.model(x)
