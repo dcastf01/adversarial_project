@@ -1,4 +1,5 @@
 
+from albumentations.augmentations.functional import gaussian_blur
 from torch.utils.data import Dataset
 import torch
 import pandas as pd
@@ -69,22 +70,16 @@ class Loader(Dataset):
         example=example.reshape(self.reshape_shape)  
         example = np.einsum(self.einum_reshape, example)
         example=Image.fromarray(np.uint8(example))
-        # if example.shape[0]<32:
-        #     # img
-        #     example = cv2.resize(example, dsize=(32, 32), interpolation=cv2.INTER_CUBIC)
-        # print(np.amax(example))
-        # print(np.amin(example))
-        # augmentations=self.transform(image=example)
-        # img=augmentations["image"]
+
         img=self.transform(example)
         # img=augmentations
         return img
     def __len__(self):
         
         return self.data.shape[0]
+ 
     
-    
-class Cifar10Loader(Loader):
+class Cifar10LoaderExperiment4(Loader):
     def __init__(self, dir_csv_file: str,input_size) -> None:
         reshape_shape=(3,32,32)
         einum_reshape='ijk->jki'
@@ -108,8 +103,32 @@ class Cifar10Loader(Loader):
                        )  
         super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
         
-class MnistLoader(Loader):
-    def __init__(self, dir_csv_file: str,input_size:int) -> None:
+class MnistLoaderExperiment4(Loader):
+    def __init__(self, input_size:int) -> None:
+        dir_csv_file="/home/dcast/adversarial_project/openml/adversarial_images/mnist784_ref_data_adversarial.csv"
+        reshape_shape=(32,32) #revisar
+        einum_reshape='ij->ij'
+        transform=A.Compose(
+        [
+            # A.Resize(32,32),
+            A.Normalize(
+                mean=[0.5],
+                std=[0.5],
+                max_pixel_value=255,
+                ),
+            ToTensorV2(),
+                ]
+                )
+        transform=transforms.Compose([
+                                    transforms.Resize((input_size, input_size), Image.BILINEAR),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(0.5, 0.5)]
+                       )      
+        super().__init__(dir_csv_file,reshape_shape,einum_reshape,transform)
+        
+class MnistLoaderWithBlur(Loader):
+    def __init__(self,input_size:int) -> None:
+        dir_csv_file="/home/dcast/adversarial_project/openml/data/mnist_784.Class_Dffclt_Dscrmn_MeanACC.csv"
         reshape_shape=(28,28) #revisar
         einum_reshape='ij->ij'
         transform=A.Compose(
@@ -125,6 +144,7 @@ class MnistLoader(Loader):
                 )
         transform=transforms.Compose([
                                     transforms.Resize((input_size, input_size), Image.BILINEAR),
+                                    transforms.GaussianBlur(5),
                                     transforms.ToTensor(),
                                     transforms.Normalize(0.5, 0.5)]
                        )      

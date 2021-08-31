@@ -59,8 +59,9 @@ class CONFIG(object):
     lr:float = 0.01 #cambiar segun modelo y benchmark
     AUTO_LR :bool= False
 
-    experiment_adversarial:bool=True #if True , then not exist Folds
+    experiment_adversarial:bool=False #if True , then not exist Folds
     experiment_shift_dataset:bool=False
+    experiment_with_blur:bool=True
 
     num_fold:int=0 #if 0 is not kfold train 
     repetitions:int=1
