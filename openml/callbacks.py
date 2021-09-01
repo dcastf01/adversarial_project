@@ -28,7 +28,148 @@ from openml.loaders_to_experiments import (Cifar10LoaderExperiment4,
                                            MnistLoaderExperiment4,
                                            MnistLoaderWithBlur)
 
+class ExperimentWaterMarkDataset(Callback):
+    
+    def __init__(self,dm,config:CONFIG) -> None:
+        super().__init__()
+        self.config=config
+        self.path_save_result="/home/dcast/adversarial_project/openml/data/results_experiment_watermark"
+        self.size_experiment=1000
+        self.dataset_val=dm.data_val
+        self.create_dataloaders()
+        self.save_result=True
+        self.img_to_print=False
+        
+    def create_dataloaders(self):
+        
+        self.data_val=self.dataset_val
+        examples_to_discard=len(self.data_val)-self.size_experiment
+        self.data_val_without_watermark,subdataset_original_val_to_discard=\
+            random_split( self.data_val,
+                         ( self.size_experiment,examples_to_discard)
+                )
+        # self.data_val_with_blur=deepcopy( self.data_val_without_blur)
+        # new_transform=transforms.Compose([
+        #                             transforms.Resize((32, 32), Image.BILINEAR),
+        #                             transforms.GaussianBlur((9),sigma=(2,10)),
+        #                             transforms.ToTensor(),
+        #                             transforms.Normalize(0.5, 0.5)]
+        #                )  
+        # self.data_val_with_blur.dataset.dataset.transform=new_transform
+        
+        self.data_val_without_watermark=DataLoader(
+            dataset=self.data_val_without_watermark,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.NUM_WORKERS,
+            pin_memory=True,
+            shuffle=False,
+        )
+        # self.data_val_with_blur=DataLoader(
+        #     dataset=self.data_val_with_blur,
+        #     batch_size=self.config.batch_size,
+        #     num_workers=self.config.NUM_WORKERS,
+        #     pin_memory=True,
+        #     shuffle=False,
+        # )
+    
+    def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
+        self.create_and_train_classification_model(trainer.datamodule)
+        self.predict(pl_module,self.data_val_without_watermark,is_regressor=True)
+        self._save_dataframe_in_csv("regressor_without_watermark")
+        self.predict(pl_module=self.classifier,dataloader=self.data_val_without_watermark,
+                          is_regressor=False)
+        self._save_dataframe_in_csv("classifier_without_watermark")
+        
+        self.img_to_print=True
+        self.predict(pl_module,self.data_val_with_watermark,is_regressor=True)
+        self._save_dataframe_in_csv("regressor_with_watermark")
+        
+        self.predict(pl_module=self.classifier,dataloader=self.data_val_with_watermark,
+                          is_regressor=False)
+        self._save_dataframe_in_csv("classifier_with_watermark")
+        return super().on_train_end(trainer, pl_module)
+    
+    def _save_dataframe_in_csv(self,additional_text):
+        
+        if self.save_result:
+            extra_text=datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+            extra_text=additional_text+"_"+extra_text
+            
+            path_with_filename=os.path.join(self.path_save_result,f"{extra_text}.csv")
+            self.df_pred.to_csv(path_with_filename) 
+    
+    def save_img(self,img):
+        if self.img_to_print:
+            first_array=img[0][0]
+            first_array=first_array.numpy()
+            #Not sure you even have to do that if you just want to visualize it
+            first_array=255*first_array
+            first_array=first_array.astype("uint8")
+            plt.imshow(first_array) #multiplcar por
+            #Actually displaying the plot if you are not in interactive mode
+            plt.show()
+            #Saving plot
+            plt.savefig(os.path.join(self.path_save_result,"figwatermark.png"))
+            self.img_to_print=False
+    
+    def predict(self,pl_module,dataloader,is_regressor=False):
+        self.df_pred=pd.DataFrame()
+        for batch in dataloader:
+            if len(batch)==3:
+                image,target,idx=batch
+            elif len(batch)==4:
+                image,target,idx,labels=batch
+            self.save_img(image)
+            with torch.no_grad():
+                results=pl_module(image.to(device=pl_module.device))
+            labels=labels.cpu().numpy()[:,0]
+            target=target.cpu().numpy()[:,0]
+            if is_regressor:
+                results=results.cpu().numpy()[:,0]
+            else:
+                results=torch.argmax(results,dim=1).cpu().numpy()
 
+            if len(batch)==3:
+                valid_pred_df = pd.DataFrame({
+                    "Dffclt":target,
+                    "results":results,
+                    "id_image": idx,
+                })
+            elif len(batch)==4:
+                valid_pred_df = pd.DataFrame({
+                    "Dffclt":target,
+                    "results":results,
+                    "labels":labels,#.cpu().numpy()[:,0],
+                    "id_image": idx,
+                })
+            if not is_regressor:
+                valid_pred_df["acierta"]=np.where( valid_pred_df['results'] == valid_pred_df['labels'] , '1', '0')
+            self.df_pred=pd.concat([self.df_pred,valid_pred_df])
+            
+    def create_and_train_classification_model(self,dm):
+        self.in_chans=1
+        self.classifier=LitClassifier(
+            model_name=self.config.experiment_name,
+            lr=self.config.lr,
+            optim=self.config.optim_name,
+            in_chans=self.in_chans,
+            num_fold=0,
+            num_repeat=0
+                             )
+        trainer=pl.Trainer(
+                    # logger=wandb_logger,
+                       gpus=[0],
+                       max_epochs=self.config.NUM_EPOCHS,
+                       precision=self.config.precision_compute,
+                       log_gpu_memory=True,
+                       progress_bar_refresh_rate=5,
+                       
+                       )
+        trainer.fit(self.classifier,
+                    datamodule=dm,
+                    # train_dataloader= self.data_train_without_adversarial,
+                    # val_dataloaders=self.data_val_without_adversarial
+                    )
 class ExperimentBlurDataset(Callback):
     
     def __init__(self,dm,config:CONFIG) -> None:
@@ -53,7 +194,7 @@ class ExperimentBlurDataset(Callback):
         self.data_val_with_blur=deepcopy( self.data_val_without_blur)
         new_transform=transforms.Compose([
                                     transforms.Resize((32, 32), Image.BILINEAR),
-                                    transforms.GaussianBlur(5),
+                                    transforms.GaussianBlur((9),sigma=(2,10)),
                                     transforms.ToTensor(),
                                     transforms.Normalize(0.5, 0.5)]
                        )  
@@ -111,7 +252,7 @@ class ExperimentBlurDataset(Callback):
             #Actually displaying the plot if you are not in interactive mode
             plt.show()
             #Saving plot
-            plt.savefig(os.path.join(self.path_save_result,"fig.png"))
+            plt.savefig(os.path.join(self.path_save_result,"fig8kernel.png"))
             self.img_to_print=False
     
     def predict(self,pl_module,dataloader,is_regressor=False):
