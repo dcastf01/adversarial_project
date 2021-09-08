@@ -1,15 +1,17 @@
 import pandas as pd
 
 import glob
-def get_list_with_all_csv_with_format(path,model_type:str,extra_info:str,day:int) ->list:
+def get_list_with_all_csv_with_format(path,model_type:str,extra_info:str,day:int,hour:int) ->list:
     #the format is {model_type}_ {with/without}*date/hour.csv
     
     #adversarial=with/without
     last_folder=path.split("/")
     if last_folder[-1]=="results_experiment_4":
         format=f'{path}/{model_type}_{extra_info}_*{day}*.csv'
-    elif last_folder[-1]=="results_experiment_shift" or  last_folder[-1]=="results_experiment_blur":
-        format=f'{path}/{model_type}_*{extra_info}_*{day}*.csv'
+    elif last_folder[-1]=="results_experiment_shift" or\
+        last_folder[-1]=="results_experiment_blur" or\
+        last_folder[-1]=="results_experiment_watermark":
+        format=f'{path}/{model_type}_*{extra_info}_*{day}*{hour}*.csv'
     # elif last_folder[-1]=="results_experiment_blur"
     files=glob.glob(format)
     return files
@@ -43,13 +45,15 @@ def get_accuracy_predict(df):
     return accuracy
     
 base_path= "/home/dcast/adversarial_project/openml/data/results_experiment_4"
-base_path= "/home/dcast/adversarial_project/openml/data/results_experiment_shift"
-base_path= "/home/dcast/adversarial_project/openml/data/results_experiment_blur"
+# base_path= "/home/dcast/adversarial_project/openml/data/results_experiment_shift"
+# base_path= "/home/dcast/adversarial_project/openml/data/results_experiment_blur"
+# base_path= "/home/dcast/adversarial_project/openml/data/results_experiment_watermark"
 model_type="regressor" #classifier/regressor
 extra_info="without" #with/without or shift/original 
-day=31
+day="06"
+hour=16
 #
-files=get_list_with_all_csv_with_format(base_path,model_type,extra_info,day)
+files=get_list_with_all_csv_with_format(base_path,model_type,extra_info,day,hour)
 df=generate_dataframe_concated(files)
 # print(files)
 print(df.head())

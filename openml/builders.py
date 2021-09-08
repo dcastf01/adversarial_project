@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
 from openml.lit_classifier import LitClassifier
-from openml.callbacks import ExperimentBlurDataset, PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy,Experiment4WithAdversarialExamples,ExperimentShiftDataset
+from openml.callbacks import ExperimentBlurDataset, ExperimentWaterMarkDataset, PredictionPlotsAfterTrain,SplitDatasetWithKFoldStrategy,Experiment4WithAdversarialExamples,ExperimentShiftDataset
 from openml.datamodule import OpenMLDataModule
 from openml.config import CONFIG, Dataset,TargetModel
 from openml.lit_regressor import LitRegressor
@@ -106,7 +106,9 @@ def get_callbacks(config:CONFIG,dm,only_train_and_test=False):
     if config.experiment_with_blur:
         blur_experiment=ExperimentBlurDataset(dm=dm,config=config)
         callbacks.append(blur_experiment)
-          
+    if config.experiment_with_watermark:
+        watermark_experiment=ExperimentWaterMarkDataset(dm=dm,config=config)
+        callbacks.append(watermark_experiment)
     return callbacks
 
 def get_system(config,dm,num_fold=0,num_repeat=0):

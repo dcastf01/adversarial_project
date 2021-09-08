@@ -1,5 +1,6 @@
 import os
-
+import sys
+sys.path.append("/home/dcast/adversarial_project")
 import numpy as np
 import pandas as pd
 import timm
@@ -183,7 +184,7 @@ lrs=[]
 images_flat=[]
 i=0
 lr=1e-7
-num_images=2
+num_images=350
 for img,y,index,diff in tqdm(zip(x_test,y_test,indexs_test,diff_test),total=num_images):
     if index not in pre_df.id:
         img=np.expand_dims(img,axis=0)

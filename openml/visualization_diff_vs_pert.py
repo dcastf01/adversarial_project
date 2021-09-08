@@ -6,7 +6,7 @@ import seaborn as sns
 import pandas as pd
 import os
 root_path="images"
-csv="fashionmnist_ref_data.csv"
+csv="mnist784_ref_data.csv"
 data=pd.read_csv(csv)
 prefix=csv.split("_")[0]
 # print(data.head())

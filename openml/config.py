@@ -61,7 +61,8 @@ class CONFIG(object):
 
     experiment_adversarial:bool=False #if True , then not exist Folds
     experiment_shift_dataset:bool=False
-    experiment_with_blur:bool=True
+    experiment_with_blur:bool=False
+    experiment_with_watermark:bool=True
 
     num_fold:int=0 #if 0 is not kfold train 
     repetitions:int=1

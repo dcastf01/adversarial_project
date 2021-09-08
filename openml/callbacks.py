@@ -26,7 +26,7 @@ from openml.datamodule import OpenMLDataModule
 from openml.lit_classifier import LitClassifier
 from openml.loaders_to_experiments import (Cifar10LoaderExperiment4,
                                            MnistLoaderExperiment4,
-                                           MnistLoaderWithBlur)
+                                           MnistLoaderExperimentWaterMark)
 
 class ExperimentWaterMarkDataset(Callback):
     
@@ -48,14 +48,7 @@ class ExperimentWaterMarkDataset(Callback):
             random_split( self.data_val,
                          ( self.size_experiment,examples_to_discard)
                 )
-        # self.data_val_with_blur=deepcopy( self.data_val_without_blur)
-        # new_transform=transforms.Compose([
-        #                             transforms.Resize((32, 32), Image.BILINEAR),
-        #                             transforms.GaussianBlur((9),sigma=(2,10)),
-        #                             transforms.ToTensor(),
-        #                             transforms.Normalize(0.5, 0.5)]
-        #                )  
-        # self.data_val_with_blur.dataset.dataset.transform=new_transform
+       
         
         self.data_val_without_watermark=DataLoader(
             dataset=self.data_val_without_watermark,
@@ -64,16 +57,29 @@ class ExperimentWaterMarkDataset(Callback):
             pin_memory=True,
             shuffle=False,
         )
-        # self.data_val_with_blur=DataLoader(
-        #     dataset=self.data_val_with_blur,
-        #     batch_size=self.config.batch_size,
-        #     num_workers=self.config.NUM_WORKERS,
-        #     pin_memory=True,
-        #     shuffle=False,
-        # )
+        self.data_val_with_watermark=MnistLoaderExperimentWaterMark()
+        examples_to_discard=len(self.data_val_with_watermark)-self.size_experiment
+        self.data_val_with_watermark,self.data_train_with_watermark=\
+            random_split( self.data_val_with_watermark,
+                         ( self.size_experiment,examples_to_discard)
+                )
+        self.data_val_with_watermark=DataLoader(
+            dataset=self.data_val_with_watermark,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.NUM_WORKERS,
+            pin_memory=True,
+            shuffle=False,
+        )
+        self.data_train_with_watermark=DataLoader(
+            dataset=self.data_train_with_watermark,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.NUM_WORKERS,
+            pin_memory=True,
+            shuffle=False,
+        )
     
     def on_train_end(self, trainer: 'pl.Trainer', pl_module: 'pl.LightningModule') -> None:
-        self.create_and_train_classification_model(trainer.datamodule)
+        self.create_and_train_classification_model(self.data_train_with_watermark)
         self.predict(pl_module,self.data_val_without_watermark,is_regressor=True)
         self._save_dataframe_in_csv("regressor_without_watermark")
         self.predict(pl_module=self.classifier,dataloader=self.data_val_without_watermark,
@@ -146,7 +152,7 @@ class ExperimentWaterMarkDataset(Callback):
                 valid_pred_df["acierta"]=np.where( valid_pred_df['results'] == valid_pred_df['labels'] , '1', '0')
             self.df_pred=pd.concat([self.df_pred,valid_pred_df])
             
-    def create_and_train_classification_model(self,dm):
+    def create_and_train_classification_model(self,train_dataloader):
         self.in_chans=1
         self.classifier=LitClassifier(
             model_name=self.config.experiment_name,
@@ -166,9 +172,8 @@ class ExperimentWaterMarkDataset(Callback):
                        
                        )
         trainer.fit(self.classifier,
-                    datamodule=dm,
-                    # train_dataloader= self.data_train_without_adversarial,
-                    # val_dataloaders=self.data_val_without_adversarial
+                    train_dataloader=train_dataloader,
+
                     )
 class ExperimentBlurDataset(Callback):
     
@@ -194,7 +199,7 @@ class ExperimentBlurDataset(Callback):
         self.data_val_with_blur=deepcopy( self.data_val_without_blur)
         new_transform=transforms.Compose([
                                     transforms.Resize((32, 32), Image.BILINEAR),
-                                    transforms.GaussianBlur((9),sigma=(2,10)),
+                                    transforms.GaussianBlur((13),sigma=(10,20)),
                                     transforms.ToTensor(),
                                     transforms.Normalize(0.5, 0.5)]
                        )  
@@ -252,7 +257,7 @@ class ExperimentBlurDataset(Callback):
             #Actually displaying the plot if you are not in interactive mode
             plt.show()
             #Saving plot
-            plt.savefig(os.path.join(self.path_save_result,"fig8kernel.png"))
+            plt.savefig(os.path.join(self.path_save_result,"fig13_10_20kernel.png"))
             self.img_to_print=False
     
     def predict(self,pl_module,dataloader,is_regressor=False):
