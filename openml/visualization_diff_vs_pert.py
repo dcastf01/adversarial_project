@@ -6,9 +6,10 @@ import seaborn as sns
 import pandas as pd
 import os
 root_path="images"
-csv="mnist784_ref_data.csv"
-data=pd.read_csv(csv)
-prefix=csv.split("_")[0]
+csv="elasticnet_L1_mnist784_ref_data.csv"
+path="/home/dcast/adversarial_project/openml/adversarial_images"
+data=pd.read_csv(os.path.join(path,csv))
+prefix=csv.split("_")[0]+csv.split("_")[1]
 # print(data.head())
 # a=data.diff
 # b=data.pert
@@ -33,7 +34,7 @@ def plot_pairplot(df,columns:list,prefix=""):
     plt.close()
 
 def plot_correlation(df,prefix=""):
-    corr = df.corr()
+    corr = df.corr(method="spearman")
     corr.style.background_gradient(cmap='coolwarm').set_precision(2)
     sns.heatmap(df.corr(), annot=True, fmt='.4f', 
             cmap=plt.get_cmap('coolwarm'), cbar=False)
@@ -45,7 +46,7 @@ def plot_correlation_only_diff_and_l2(df,prefix=""):
     # df=df[df["diff"]>-4]
     # df=df[df["diff"]<-1]
     df=df[["diff","l2"]]
-    corr = df.corr()
+    corr = df.corr(method="spearman")
     corr.style.background_gradient(cmap='coolwarm').set_precision(2)
     sns.heatmap(df.corr(), annot=True, fmt='.4f', 
             cmap=plt.get_cmap('coolwarm'), cbar=False)
